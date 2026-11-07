@@ -1,3 +1,4 @@
+import { runMoveCommand } from "./move.js";
 import { Command } from "commander";
 import { runModeCommand } from "./mode.js";
 import { addArchiveOptions, runArchiveCommand } from "./archive.js";
@@ -25,6 +26,15 @@ import {
 
 export function createAgentCommand(): Command {
   const agent = new Command("agent").description("Manage agents (advanced operations)");
+
+  addJsonAndDaemonHostOptions(
+    agent
+      .command("move")
+      .description("Move this agent to another workspace without changing its working directory")
+      .argument("<agent-id>", "Exact agent ID")
+      .requiredOption("--workspace <id>", "Destination workspace ID")
+      .allowExcessArguments(false),
+  ).action(withOutput(runMoveCommand));
 
   // Primary agent commands (same as top-level)
   addJsonAndDaemonHostOptions(addLsOptions(agent.command("ls"))).action(withOutput(runLsCommand));

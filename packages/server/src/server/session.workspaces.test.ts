@@ -10059,3 +10059,72 @@ test("workspace PR status survives session cleanup and reconnect", async () => {
     await gitService.dispose();
   }
 });
+
+test("workspace.move.request changes project while preserving workspace identity and cwd", async () => {
+  const emitted: SessionOutboundMessage[] = [];
+  const session = asTestSession(
+    createSessionForWorkspaceTests({ onMessage: (message) => emitted.push(message) }),
+  );
+  const timestamp = "2026-11-07T00:00:00.000Z";
+  const project = createPersistedProjectRecord({
+    projectId: "destination",
+    rootPath: "/different-project",
+    kind: "non_git",
+    displayName: "ENG",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  let workspace = createPersistedWorkspaceRecord({
+    workspaceId: "moving",
+    projectId: "source",
+    cwd: REPO_CWD,
+    kind: "directory",
+    displayName: "Paseo Fork",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  session.projectRegistry.get = async (id) => (id === project.projectId ? project : null);
+  session.workspaceRegistry.list = async () => [workspace];
+  session.workspaceRegistry.get = async (id) => (id === workspace.workspaceId ? workspace : null);
+  session.workspaceRegistry.update = async (id, update) => {
+    if (id !== workspace.workspaceId) return null;
+    workspace = update(workspace);
+    return workspace;
+  };
+  await session.handleMessage({
+    type: "workspace.move.request",
+    workspaceId: workspace.workspaceId,
+    projectId: project.projectId,
+    requestId: "move-1",
+  });
+  expect(findByType(emitted, "workspace.move.response")?.payload).toMatchObject({
+    accepted: true,
+    error: null,
+  });
+  expect(workspace).toMatchObject({
+    workspaceId: "moving",
+    projectId: "destination",
+    cwd: REPO_CWD,
+    displayName: "Paseo Fork",
+  });
+  await session.handleMessage({
+    type: "workspace.move.request",
+    workspaceId: workspace.workspaceId,
+    projectId: "missing",
+    requestId: "move-2",
+  });
+  expect(emitted.findLast((message) => message.type === "workspace.move.response")).toMatchObject({
+    payload: { accepted: false, error: "Destination project not found or archived" },
+  });
+  expect(workspace.projectId).toBe("destination");
+  workspace = { ...workspace, kind: "worktree" };
+  await session.handleMessage({
+    type: "workspace.move.request",
+    workspaceId: workspace.workspaceId,
+    projectId: project.projectId,
+    requestId: "move-3",
+  });
+  expect(emitted.findLast((message) => message.type === "workspace.move.response")).toMatchObject({
+    payload: { accepted: false },
+  });
+});

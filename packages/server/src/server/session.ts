@@ -3087,6 +3087,10 @@ export class Session {
         return this.handleArchiveWorkspaceRequest(msg);
       case "project.remove.request":
         return this.handleProjectRemoveRequest(msg);
+      case "workspace.move.request":
+        return this.handleWorkspaceMoveRequest(msg);
+      case "agent.move.request":
+        return this.handleAgentMoveRequest(msg);
       case "workspace.title.set.request":
         return this.handleWorkspaceTitleSetRequest(msg.workspaceId, msg.title, msg.requestId);
       case "workspace.pin.set.request":
@@ -3864,6 +3868,61 @@ export class Session {
         },
       });
     }
+  }
+
+  private async handleWorkspaceMoveRequest(
+    msg: Extract<SessionInboundMessage, { type: "workspace.move.request" }>,
+  ): Promise<void> {
+    let error: string | null = null;
+    try {
+      const project = await this.projectRegistry.get(msg.projectId);
+      if (!project || project.archivedAt)
+        throw new Error("Destination project not found or archived");
+      const updated = await this.workspaceRegistry.update(msg.workspaceId, (workspace) => {
+        if (workspace.archivedAt) throw new Error("Cannot move an archived workspace");
+        if (workspace.kind === "worktree")
+          throw new Error("Worktree project moves require backing migration and are not supported");
+        return { ...workspace, projectId: msg.projectId, updatedAt: new Date().toISOString() };
+      });
+      if (!updated) throw new Error("Workspace not found");
+    } catch (cause) {
+      error = getErrorMessage(cause);
+    }
+    if (error === null) await this.emitWorkspaceUpdatesForWorkspaceIds([msg.workspaceId]);
+    this.emit({
+      type: "workspace.move.response",
+      payload: {
+        requestId: msg.requestId,
+        workspaceId: msg.workspaceId,
+        projectId: msg.projectId,
+        accepted: error === null,
+        error,
+      },
+    });
+  }
+
+  private async handleAgentMoveRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.move.request" }>,
+  ): Promise<void> {
+    let error: string | null = null;
+    try {
+      const workspace = await this.workspaceRegistry.get(msg.workspaceId);
+      if (!workspace || workspace.archivedAt)
+        throw new Error("Destination workspace not found or archived");
+      await this.agentManager.moveAgentToWorkspace(msg.agentId, msg.workspaceId);
+    } catch (cause) {
+      error = getErrorMessage(cause);
+    }
+    this.emit({
+      type: "agent.move.response",
+      payload: {
+        requestId: msg.requestId,
+        agentId: msg.agentId,
+        workspaceId: msg.workspaceId,
+        accepted: error === null,
+        error,
+      },
+    });
   }
 
   private async handleWorkspaceTitleSetRequest(
