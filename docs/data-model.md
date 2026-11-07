@@ -26,6 +26,7 @@ checkout root. They intentionally differ for an exact subproject inside a worktr
 restore, branch auto-name, and descriptor flows consume those persisted facts rather than
 rediscovering ownership from a directory that may already be gone. Reconciliation may refresh
 mutable placement facts, but never changes `projectId`, `cwd`, `displayName`, or `baseBranch`.
+Explicit workspace moves change only the organizational project for directory and local-checkout workspaces; cwd and backing metadata stay fixed. Worktree project moves are rejected. Agent moves preserve the provider session and cwd, require a finished turn, and reject attached parent/child families rather than splitting ownership.
 Workspace archive runs lifecycle teardown from the exact `cwd` but removes only the backing
 `worktreeRoot` after its last active reference disappears. Worktree recovery recreates that backing
 checkout from `mainRepoRoot`, then restores the relative path from `worktreeRoot` to `cwd`.

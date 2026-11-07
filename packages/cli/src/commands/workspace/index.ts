@@ -1,3 +1,4 @@
+import { runMoveCommand } from "./move.js";
 import { Command } from "commander";
 import { withOutput } from "../../output/index.js";
 import { addJsonAndDaemonHostOptions } from "../../utils/command-options.js";
@@ -9,6 +10,15 @@ import { runSetupCommand } from "./setup.js";
 
 export function createWorkspaceCommand(): Command {
   const workspace = new Command("workspace").description("Manage workspaces");
+
+  addJsonAndDaemonHostOptions(
+    workspace
+      .command("move")
+      .description("Move this workspace to another project without changing its working directory")
+      .argument("<workspace-id>", "Exact workspace ID")
+      .requiredOption("--project <id>", "Destination project ID")
+      .allowExcessArguments(false),
+  ).action(withOutput(runMoveCommand));
 
   addJsonAndDaemonHostOptions(
     workspace

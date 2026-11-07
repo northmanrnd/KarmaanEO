@@ -3473,6 +3473,27 @@ export class DaemonClient {
     return { removedWorkspaceIds: payload.removedWorkspaceIds };
   }
 
+  private requirePlacementMoves(): void {
+    if (!this.getLastServerInfoMessage()?.features?.placementMoves)
+      throw new Error("Update the host to move workspaces or agents");
+  }
+
+  async moveWorkspace(workspaceId: string, projectId: string): Promise<void> {
+    this.requirePlacementMoves();
+    const result = await this.sendNamespacedCorrelatedSessionRequest<"workspace.move.response">({
+      message: { type: "workspace.move.request", workspaceId, projectId },
+    });
+    if (!result.accepted) throw new Error(result.error ?? "Workspace move rejected");
+  }
+
+  async moveAgent(agentId: string, workspaceId: string): Promise<void> {
+    this.requirePlacementMoves();
+    const result = await this.sendNamespacedCorrelatedSessionRequest<"agent.move.response">({
+      message: { type: "agent.move.request", agentId, workspaceId },
+    });
+    if (!result.accepted) throw new Error(result.error ?? "Agent move rejected");
+  }
+
   async setWorkspaceTitle(
     workspaceId: string,
     title: string | null,

@@ -2377,6 +2377,52 @@ export class AgentManager {
     return { record: result.record, live: false, previousParentAgentId };
   }
 
+  /** Rehome a standalone session without restarting its provider or changing cwd. */
+  async moveAgentToWorkspace(agentId: string, workspaceId: string): Promise<void> {
+    return this.runLifecycleMutation(agentId, async () => {
+      const registry = this.requireRegistry();
+      const record = await registry.get(agentId);
+      if (!record || record.archivedAt || record.internal)
+        throw new Error("Agent not found or not movable");
+      if (record.workspaceId === workspaceId) return;
+      if (this.hasInFlightRun(agentId))
+        throw new Error("Wait for the current turn to finish before moving this agent");
+      const family = await registry.list();
+      if (
+        getParentAgentIdFromLabels(record.labels) ||
+        Array.from(this.agents.values()).some(
+          (child) => getParentAgentIdFromLabels(child.labels) === agentId,
+        ) ||
+        family.some((child) => getParentAgentIdFromLabels(child.labels) === agentId)
+      ) {
+        throw new Error(
+          "Attached agent families cannot be moved independently; detach the agents first",
+        );
+      }
+      const live = this.agents.get(agentId);
+      const previous = live?.workspaceId;
+      // Update the live projection first so subsequent turn snapshots use the destination.
+      if (live) live.workspaceId = workspaceId;
+      try {
+        if (live) await this.persistSnapshot(live);
+        else
+          await registry.upsert({
+            ...record,
+            workspaceId,
+            updatedAt: this.nextStoredUpdatedAt(record),
+          });
+      } catch (error) {
+        if (live) live.workspaceId = previous;
+        throw error;
+      }
+      if (live) this.emitState(live, { persist: false });
+      else {
+        const updated = await registry.get(agentId);
+        if (updated) this.dispatchStoredAgentState(updated);
+      }
+    });
+  }
+
   notifyAgentState(agentId: string): void {
     const agent = this.agents.get(agentId);
     if (!agent || agent.internal) {

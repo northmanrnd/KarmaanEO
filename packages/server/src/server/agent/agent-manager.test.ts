@@ -12695,3 +12695,99 @@ test("an out-of-band command racing idle cleanup waits for the resumed runtime",
   expect(h.commands).toEqual(["/maintenance"]);
   expect(h.prompts).toEqual([]);
 });
+
+test("placement move preserves live session and cwd, persists, and serializes repeated moves", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-move-test-"));
+  const storage = new AgentStorage(join(workdir, "agents"), logger);
+  const client = new SessionRecordingAgentClient();
+  const manager = new AgentManager({ clients: { codex: client }, registry: storage, logger });
+  try {
+    const agent = await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+      workspaceId: "source",
+    });
+    const session = agent.session;
+    await Promise.all([
+      manager.moveAgentToWorkspace(agent.id, "first"),
+      manager.moveAgentToWorkspace(agent.id, "destination"),
+    ]);
+    await storage.flush();
+    expect(manager.getAgent(agent.id)?.session).toBe(session);
+    expect(manager.getAgent(agent.id)?.workspaceId).toBe("destination");
+    expect(client.sessions).toHaveLength(1);
+    expect(await storage.get(agent.id)).toMatchObject({
+      id: agent.id,
+      cwd: workdir,
+      workspaceId: "destination",
+    });
+    const reloaded = new AgentStorage(join(workdir, "agents"), logger);
+    expect(await reloaded.get(agent.id)).toMatchObject({
+      workspaceId: "destination",
+      cwd: workdir,
+    });
+  } finally {
+    await Promise.all(manager.listAgents().map((agent) => manager.closeAgent(agent.id)));
+    rmSync(workdir, { recursive: true, force: true });
+  }
+});
+
+test("placement move rejects missing, archived and attached agents without changing placement", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-move-reject-test-"));
+  const storage = new AgentStorage(join(workdir, "agents"), logger);
+  const client = new SessionRecordingAgentClient();
+  const manager = new AgentManager({ clients: { codex: client }, registry: storage, logger });
+  try {
+    await expect(manager.moveAgentToWorkspace("missing", "destination")).rejects.toThrow(
+      "not found",
+    );
+    const agent = await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+      workspaceId: "source",
+    });
+    const record = await storage.get(agent.id);
+    if (!record) throw new Error("Expected stored agent");
+    await storage.upsert({
+      ...record,
+      labels: { ...record.labels, "paseo.parent-agent-id": "parent" },
+    });
+    await expect(manager.moveAgentToWorkspace(agent.id, "destination")).rejects.toThrow(
+      "Attached agent families",
+    );
+    expect(manager.getAgent(agent.id)?.workspaceId).toBe("source");
+    expect((await storage.get(agent.id))?.workspaceId).toBe("source");
+    await storage.upsert({ ...record, archivedAt: new Date().toISOString() });
+    await expect(manager.moveAgentToWorkspace(agent.id, "destination")).rejects.toThrow(
+      "not movable",
+    );
+  } finally {
+    await Promise.all(manager.listAgents().map((agent) => manager.closeAgent(agent.id)));
+    rmSync(workdir, { recursive: true, force: true });
+  }
+});
+
+test("placement move supports stored-only sessions without creating a provider", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-move-stored-test-"));
+  const storage = new AgentStorage(join(workdir, "agents"), logger);
+  const client = new SessionRecordingAgentClient();
+  const manager = new AgentManager({ clients: { codex: client }, registry: storage, logger });
+  try {
+    await storage.upsert({
+      id: "stored",
+      provider: "codex",
+      cwd: workdir,
+      workspaceId: "source",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      labels: {},
+      lastStatus: "closed",
+      persistence: { provider: "codex", sessionId: "existing-transcript" },
+    });
+    await manager.moveAgentToWorkspace("stored", "destination");
+    expect(await storage.get("stored")).toMatchObject({
+      workspaceId: "destination",
+      cwd: workdir,
+      persistence: { sessionId: "existing-transcript" },
+    });
+    expect(client.sessions).toHaveLength(0);
+  } finally {
+    rmSync(workdir, { recursive: true, force: true });
+  }
+});

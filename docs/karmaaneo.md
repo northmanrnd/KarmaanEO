@@ -23,6 +23,19 @@ CSC_IDENTITY_AUTO_DISCOVERY=false npm run build:desktop -- --dir --mac --arm64 -
 Output: `packages/desktop/release/mac-arm64/KarmaanEO.app`.
 Quit the running packaged app before copying this bundle to `/Applications/KarmaanEO.app`. Retain the existing Paseo and My Paseo bundles for rollback. Building does not migrate or delete chat data.
 
+## Placement moves
+
+Requires a host advertising `placementMoves`; older hosts are rejected before sending a mutation.
+
+```sh
+paseo workspace move <workspace-id> --project <project-id> --json
+paseo agent move <agent-id> --workspace <workspace-id> --json
+```
+
+Use exact IDs from `project ls`, `workspace ls` and `agent ls`. A workspace move changes its project grouping while retaining its directory. Worktree project moves are rejected. Agent moves retain the provider process, transcript and directory. Wait for the current turn to finish; attached parent/child families must be detached before moving. Archived or missing destinations are rejected. Repeating an agent move to the same destination is a no-op.
+
+Updating the desktop bundle alone cannot add these server APIs to an already-running daemon. Activate the new daemon only during an approved restart; do not edit live registry files or restart port 6767 to apply a reorganization.
+
 ## Repository and Linear workflow
 
 Track work in the [KarmaanEO project](https://linear.app/karmaan/project/karmaaneo-15e9b8a2c1cb), Ops team. Assign issues to Wyler. Include the issue identifier in feature branch names and `Linear: OPS-123` in commit messages and PR bodies. Avoid automatic closing keywords; use In Review while review remains outstanding, and Done only after verification and merge.
