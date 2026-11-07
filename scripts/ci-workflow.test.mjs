@@ -330,16 +330,20 @@ test("packaging runs on main without allocating pull-request runners", () => {
   }
 });
 
-test("desktop packaging smokes main pushes and only the pull requests that touch packaging", () => {
+test("desktop packaging smokes upstream and fork default pushes and only the pull requests that touch packaging", () => {
   const source = readFileSync(new URL(".github/workflows/desktop-packages.yml", repoRoot), "utf8");
   const trigger = source.split("jobs:", 1)[0];
-  assert.match(trigger, /push:\s*\n\s+branches: \[main\]/);
+  assert.match(trigger, /push:\s*\n\s+branches: \[main, karmaaneo\]/);
   assert.match(trigger, /pull_request:\s*\n\s+paths:/);
   assert.match(trigger, /- "packages\/desktop\/\*\*"/);
   assert.doesNotMatch(source, /dorny\/paths-filter/);
   for (const action of ["actions/checkout", "actions/setup-node", "actions/upload-artifact"]) {
     assert.match(source, new RegExp(`${action}@[0-9a-f]{40} # v\\d+\\.\\d+\\.\\d+`));
   }
+  const appleSilicon = jobBlocks(source).get("apple-silicon-archive").join("\n");
+  assert.match(appleSilicon, /runs-on: macos-latest/);
+  assert.match(appleSilicon, /--mac zip --arm64/);
+  assert.doesNotMatch(appleSilicon, /--x64|--linux|--win/);
 });
 
 test("stable iOS releases upload once and distribute to external testers before App Store review", () => {

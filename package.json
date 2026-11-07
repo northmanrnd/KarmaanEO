@@ -104,7 +104,7 @@
     "release:check": "node scripts/karmaaneo-release.mjs check",
     "release:tag": "node scripts/karmaaneo-release.mjs tag",
     "release:push": "node scripts/karmaaneo-release.mjs push",
-    "test:release": "node --test scripts/karmaaneo-release.test.mjs"
+    "test:release": "node --test scripts/release-version-utils.test.mjs"
   },
   "devDependencies": {
     "@types/ws": "^8.5.14",

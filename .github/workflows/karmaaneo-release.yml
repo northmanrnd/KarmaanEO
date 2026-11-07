@@ -44,7 +44,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
           git merge-base --is-ancestor HEAD origin/karmaaneo
           node scripts/karmaaneo-release.mjs check --tag "$RELEASE_TAG"
-          node --test scripts/karmaaneo-release.test.mjs
+          node --test scripts/release-version-utils.test.mjs
           node --input-type=module <<'NODE'
           import { appendFileSync, readFileSync } from 'node:fs';
           import { releasePlan } from './scripts/karmaaneo-release.mjs';
