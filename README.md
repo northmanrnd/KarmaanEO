@@ -1,3 +1,16 @@
+# KarmaanEO
+
+KarmaanEO is Karmaan’s desktop fork of [Paseo](https://github.com/getpaseo/paseo), built from the existing My Paseo customization.
+
+- Repository: https://github.com/northmanrnd/KarmaanEO
+- Linear project: https://linear.app/karmaan/project/karmaaneo-15e9b8a2c1cb
+- Establishment: [OPS-1369](https://linear.app/karmaan/issue/OPS-1369)
+- Fork build and maintenance: [docs/karmaaneo.md](docs/karmaaneo.md)
+
+The `karmaaneo` default branch retains the v0.15.1 base and the original My Paseo commit, including Markdown file links with spaces. The upstream `main` branch is retained separately. Desktop packaging uses the KarmaanEO name and bundle ID; internal Paseo names and runtime state remain compatible with existing chats. Upstream automatic updates remain disabled.
+
+---
+
 <p align="center">
   <img src="packages/website/public/logo.svg" width="64" height="64" alt="Paseo logo">
 </p>
