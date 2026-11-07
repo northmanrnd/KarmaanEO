@@ -2,17 +2,13 @@ name: Desktop Packages
 
 on:
   push:
-    branches: [main, karmaaneo]
+    branches: [main]
   # Packaging leaves ordinary PR CI, but a PR that changes what gets packaged
   # or how it is smoked still proves the real artifacts before merge.
   pull_request:
     paths:
       - "packages/desktop/**"
       - "plugins/**"
-      - "package*.json"
-      - "scripts/*release*"
-      - "releases/**"
-      - ".github/workflows/karmaaneo-release.yml"
       - "nix/**"
       - ".github/workflows/desktop-packages.yml"
 
@@ -93,31 +89,3 @@ jobs:
           path: ${{ runner.temp }}/desktop-smoke
           if-no-files-found: ignore
           retention-days: 7
-
-  apple-silicon-archive:
-    if: github.repository == 'northmanrnd/KarmaanEO'
-    runs-on: macos-latest
-    env:
-      ONNXRUNTIME_NODE_INSTALL: skip
-      CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      # Metro transforms the large generated protocol validator in a worker.
-      NODE_OPTIONS: --max-old-space-size=4096
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22.20.0"
-          cache: npm
-      - run: npm ci --no-audit --no-fund
-      - run: npm run build:desktop -- --mac zip --arm64 --publish never -c.mac.identity=- -c.mac.notarize=false
-      - name: Verify archive and signature
-        run: |
-          version=$(node -p 'require("./package.json").version')
-          test -f "packages/desktop/release/KarmaanEO-$version-arm64.zip"
-          codesign --verify --deep --strict packages/desktop/release/mac-arm64/KarmaanEO.app
-          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' packages/desktop/release/mac-arm64/KarmaanEO.app/Contents/Info.plist)" = "$version"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: karmaaneo-apple-silicon-candidate
-          if-no-files-found: error
-          path: packages/desktop/release/KarmaanEO-*-arm64.zip

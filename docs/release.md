@@ -1,48 +1,45 @@
-# KarmaanEO releases
+# KarmaanEO versioning and release tags
 
-KarmaanEO has its own version line, starting at `0.1.0`. Its upstream source baseline is Paseo `0.15.1`; those numbers describe different products. This runbook owns the fork's executable release procedure. Shared policy lives in [engineering-docs](https://github.com/northmanrnd/engineering-docs/blob/main/repository-releases-and-documentation.md).
+KarmaanEO has its own version line, starting at `0.1.0`. Its source baseline is Paseo `0.15.1`; those describe different products. This framework manages versions, notes, immutable Git tags and GitHub release entries. It does not build, package, sign, install or deploy an app. KarmaanEO's supported desktop scope is macOS Apple Silicon.
 
-## Version and distribution contract
+Shared policy: [repository releases and documentation](https://github.com/northmanrnd/engineering-docs/blob/main/repository-releases-and-documentation.md).
+
+## Choose a version
 
 | Change                                | Mode                                     | Example from 0.1.0 |
 | ------------------------------------- | ---------------------------------------- | ------------------ |
-| Compatible bug fix                    | `patch`                                  | 0.1.1              |
-| Compatible feature                    | `minor`                                  | 0.2.0              |
+| Compatible correction                 | `patch`                                  | 0.1.1              |
+| Compatible capability                 | `minor`                                  | 0.2.0              |
 | Breaking product or operator contract | `major`                                  | 1.0.0              |
-| Start a beta for one of those changes | `beta-patch`, `beta-minor`, `beta-major` | 0.2.0-beta.1       |
-| Next candidate in the same beta       | `beta-next`                              | 0.2.0-beta.2       |
-| Promote the current beta version      | `promote`                                | 0.2.0              |
+| Start a beta                          | `beta-patch`, `beta-minor`, `beta-major` | 0.2.0-beta.1       |
+| Next beta candidate                   | `beta-next`                              | 0.2.0-beta.2       |
+| Promote the current beta              | `promote`                                | 0.2.0              |
 
-Use explicit major bumps for breaking contracts even before 1.0. Promotion removes the beta suffix and produces a fresh build; it does not copy the beta archive or prove no source changed. Review the diff from the tested beta and rerun acceptance checks before promotion.
+Use explicit major bumps for breaking contracts even before 1.0. Promotion removes the beta suffix; review changes since the tested beta before calling it stable.
 
-Root and every workspace manifest and lock entry use one version. All workspace packages are private; internal `@getpaseo/*` names remain for compatibility and are never published to npm by this framework. Plugin `requirements.paseo` checks use the retained upstream plugin API baseline (`PASEO_PLUGIN_API_VERSION` in protocol/plugin-requirements), currently `0.15.1`, at both app and daemon composition boundaries. Keep that baseline separate from product releases; advance it only after integrating and validating the upstream API. App version, daemon version and protocol capabilities remain separate concerns; retain [protocol compatibility](protocol-compatibility.md).
+Root and workspace manifests and lock entries share one product version. All workspace packages remain private; retained `@getpaseo/*` names are not published to npm. Plugin `requirements.paseo` checks use a separate validated upstream API baseline (`PASEO_PLUGIN_API_VERSION`), currently `0.15.1`. Advance that only after integrating the upstream API. Product bumps do not change protocol or plugin compatibility. See [protocol compatibility](protocol-compatibility.md).
 
-Tags are annotated and immutable: `karmaaneo-vX.Y.Z` or `karmaaneo-vX.Y.Z-beta.N`. Release notes live in `releases/<tag>.md`. Release source must be merged into the fork's `karmaaneo` branch. Inherited upstream publishers and deployment jobs are guarded to run only in `getpaseo/paseo`.
+## Prepare and review
 
-The only supported release artifact is **macOS Apple Silicon (arm64)**, macOS 13 or later. The workflow creates `KarmaanEO-<version>-arm64.zip` and `SHA256SUMS.txt`. It does not produce Intel, Windows, Linux or mobile releases. Builds are ad-hoc signed, without Developer ID or notarization; this is not a notarized public distribution channel. Automatic upstream updates remain disabled.
-
-## Prepare a release PR
-
-Use Node from `.tool-versions` and a clean checkout with `origin` pointing to `northmanrnd/KarmaanEO`. Keep the input notes outside the checkout so the clean-tree guard does not reject them.
+Use Node from `.tool-versions`, a clean tree and the fork's `origin`. Keep input notes outside the checkout so they do not trip the untracked-file guard.
 
 ```sh
-git fetch origin
 git switch karmaaneo
 git pull --ff-only origin karmaaneo
 git switch -c wyler/OPS-123-release
 npm run release:plan -- minor
-npm run release:prepare -- minor --notes /tmp/karmaaneo-release-notes.md
+npm run release:prepare -- minor --notes /tmp/karmaaneo-notes.md
 npm run release:check
 npm run test:release
 ```
 
-Preparation changes manifests, lockfile and versioned notes. It never commits, tags or publishes. Review the full diff, format changed files with `npm run format:files -- <paths>`, and commit through normal hooks with `Linear: OPS-123` in the message. Open a PR to `karmaaneo` with that same Linear line. Notes describe user changes, compatibility, known limitations and installation implications. Keep historical release notes intact.
+Preparation updates versions, lockfile and `releases/karmaaneo-v<version>.md`. It never commits, tags or publishes. Notes describe user changes, compatibility and limitations. Review the diff, format changed files with `npm run format:files -- <paths>`, commit through normal hooks and open a PR to `karmaaneo`. Include `Linear: OPS-123` in commit messages and the PR body.
 
-The initial `0.1.0` candidate already has notes and synchronized manifests. Review and merge those files; do not prepare `current` over existing notes. `release:plan` without a mode previews the current candidate.
+The initial `0.1.0` candidate already has notes. Merge those files rather than preparing `current` over them. `release:plan` without a mode previews the current candidate. Preserve historical release notes.
 
-## Tag and publish merged source
+## Tag and publish notes
 
-Run these only when you intend to publish a release:
+After the version PR is merged, run these when you intend to publish:
 
 ```sh
 git switch karmaaneo
@@ -52,24 +49,14 @@ npm run release:tag
 npm run release:push
 ```
 
-Tagging requires a clean tree on `karmaaneo`, matching private workspace versions and nonempty notes. Pushing requires an annotated tag pointing at HEAD and rejects an existing remote tag. The branch and exact tag push atomically without force; an outdated branch cannot leave a release tag behind. Both fetch and push destinations must be the fork.
+Tags are annotated and immutable: `karmaaneo-vX.Y.Z` or `karmaaneo-vX.Y.Z-beta.N`. Commands refuse dirty source, version/lock mismatches, wrong branches, wrong fetch or push destinations, empty notes and existing tags. The tag must point at HEAD. Branch and tag push atomically without force.
 
-`.github/workflows/karmaaneo-release.yml` validates the tag and merged source, installs the lockfile, builds the Apple Silicon archive, and stages a GitHub draft with notes and checksums. A tag push publishes after the build succeeds. Betas stay prereleases; an older stable release cannot replace a newer stable release as Latest. Artifacts are retained by Actions as well as attached to the release.
+The small tag workflow checks metadata and runs the built-in Node release tests without installing dependencies. It stages a GitHub draft from the checked-in notes and publishes it after validation. Betas remain prereleases; publishing an older stable version cannot move Latest backward. No packaging or broad test suite runs in this workflow.
 
-Manual workflow dispatch accepts an existing immutable tag. `publish=false` (default) stages a draft for inspection; `publish=true` publishes it after validation/build. Dispatch the workflow from the reviewed default branch. A published release cannot be overwritten by a rerun. To recover a failed build, inspect its error and rerun before publication; if source must change, prepare a new version and tag. Never move a released tag.
+Manual dispatch accepts an existing immutable tag; `publish=false` stages a draft, while `publish=true` publishes it. Use the reviewed default branch for dispatch. Published entries cannot be overwritten by a rerun. If source changes, use a new version and tag.
 
-## Verify and install
+## Verify and recover
 
-Before calling a release complete, check the Actions run and release state, archive name/version, checksum, code signature, and app launch on an Apple Silicon Mac. Verify the reported version and the changed user flow against existing local state. CI building an archive alone does not establish that installation or live agent flows passed.
+Check the exact tag's commit, synchronized versions, notes and GitHub release state. `npm run test:release` uses isolated local Git fixtures and takes seconds; it covers transitions, consistency, destination/branch/clean-tree guards, annotated tags, collisions and Latest selection. Local lint/typechecks remain the normal repo checks. The existing broad CI is not expanded by this framework.
 
-```sh
-shasum -a 256 -c SHA256SUMS.txt
-ditto -x -k KarmaanEO-0.1.0-arm64.zip /tmp/karmaaneo-release-check
-codesign --verify --deep --strict /tmp/karmaaneo-release-check/KarmaanEO.app
-```
-
-Use the actual release version in the archive name. Quit the packaged app before replacing `/Applications/KarmaanEO.app`; retain the previous bundle for rollback. Building or publishing does not install an update or restart the daemon. The daemon on port 6767 owns running sessions: schedule an explicitly approved restart when a server change needs activation. See [fork state and placement moves](karmaaneo.md).
-
-## Verification coverage
-
-`npm run test:release` uses isolated local Git fixtures to test version transitions, preparation, consistency checks, clean-tree and branch/remote guards, annotated tags and existing-note/tag protection. It does not access GitHub or publish. PR checks run these tests, candidate consistency validation and an Apple Silicon archive/signature build. Full archive creation also runs in the release workflow; Developer ID signing, notarization and automatic installation are not configured.
+A release entry is a source/version record. If you separately need a local Apple Silicon build, follow [fork build and installation](karmaaneo.md); it is not required to create a release tag. Packaging, signing/notarization, automatic updates and deployment are separate work. Never restart the live daemon on port 6767 to manage a release tag.

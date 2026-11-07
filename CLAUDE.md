@@ -118,7 +118,7 @@ See [docs/development.md](docs/development.md) for full setup, build sync requir
 
 ## Releases and documentation
 
-The fork default branch is `karmaaneo`. Merge fork PRs there. Read [docs/release.md](docs/release.md) before changing versions, tags or release workflows; it owns the exact release commands and validation. Release scope is macOS Apple Silicon only. Product versions are independent of the retained Paseo plugin API baseline; do not bump that baseline during a product release. Do not enable inherited upstream publishers or publish the retained `@getpaseo/*` package names.
+The fork default branch is `karmaaneo`. Merge fork PRs there. Read [docs/release.md](docs/release.md) before changing versions, tags or release workflows; it owns the exact release commands and validation. The product scope is macOS Apple Silicon only. Release management means versions, notes and tags; do not add packaging or broad CI jobs unless explicitly requested. Product versions are independent of the retained Paseo plugin API baseline; do not bump that baseline during a product release. Do not enable inherited upstream publishers or publish the retained `@getpaseo/*` package names.
 
 Update the owning docs in the same PR as behavior or process changes. Keep this file (also exposed through the `AGENTS.md` symlink) as the repository map and concise operating rules; put procedures in their subject docs. Shared release and documentation standards live in [engineering-docs](https://github.com/northmanrnd/engineering-docs/blob/main/repository-releases-and-documentation.md). Distinguish implemented code, verified artifacts and installed behavior in reports. Preparing release infrastructure does not authorize publishing a release or restarting the live daemon.
 

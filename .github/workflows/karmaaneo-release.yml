@@ -9,7 +9,7 @@ on:
         required: true
         type: string
       publish:
-        description: Publish the draft after the Apple Silicon build succeeds
+        description: Publish the draft release notes after validation
         type: boolean
         default: false
 permissions:
@@ -19,7 +19,6 @@ concurrency:
   cancel-in-progress: false
 env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-  ONNXRUNTIME_NODE_INSTALL: skip
 jobs:
   validate:
     if: github.repository == 'northmanrnd/KarmaanEO'
@@ -51,51 +50,8 @@ jobs:
           const p = releasePlan(JSON.parse(readFileSync('package.json')).version);
           appendFileSync(process.env.GITHUB_OUTPUT, `version=${p.version}\nprerelease=${p.prerelease}\n`);
           NODE
-  build:
-    needs: validate
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            platform: mac
-            arch: arm64
-            targets: zip
-    runs-on: ${{ matrix.os }}
-    env:
-      CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      # Metro transforms the large generated protocol validator in a worker.
-      NODE_OPTIONS: --max-old-space-size=4096
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.RELEASE_TAG }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22.20.0"
-          cache: npm
-      - run: npm ci --no-audit --no-fund
-      - name: Build versioned desktop archives
-        shell: bash
-        env:
-          PLATFORM: ${{ matrix.platform }}
-          ARCH: ${{ matrix.arch }}
-          TARGETS: ${{ matrix.targets }}
-        run: |
-          extra=()
-          if [[ "$PLATFORM" == mac ]]; then extra=(-c.mac.identity=- -c.mac.notarize=false); fi
-          read -r -a targets <<< "$TARGETS"
-          npm run build:desktop -- "--$PLATFORM" "${targets[@]}" "--$ARCH" --publish never "${extra[@]}"
-      - name: Verify code signature
-        run: codesign --verify --deep --strict packages/desktop/release/mac-arm64/KarmaanEO.app
-      - uses: actions/upload-artifact@v4
-        with:
-          name: karmaaneo-${{ matrix.platform }}-${{ matrix.arch }}
-          if-no-files-found: error
-          path: |
-            packages/desktop/release/KarmaanEO-*.zip
   release:
-    needs: [validate, build]
+    needs: validate
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -103,22 +59,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.RELEASE_TAG }}
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: karmaaneo-*
-          path: artifacts
-          merge-multiple: true
-      - name: Stage complete release with checksums
+      - name: Stage release notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           PRERELEASE: ${{ needs.validate.outputs.prerelease }}
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
-          cd artifacts
-          test -f "KarmaanEO-$VERSION-arm64.zip"
-          sha256sum "KarmaanEO-$VERSION-arm64.zip" > SHA256SUMS.txt
-          cd ..
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             test "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" = true
           else
@@ -126,8 +73,7 @@ jobs:
             if [[ "$PRERELEASE" == true ]]; then extra=(--prerelease); fi
             gh release create "$RELEASE_TAG" --verify-tag --draft --title "KarmaanEO $VERSION" --notes-file "releases/$RELEASE_TAG.md" "${extra[@]}"
           fi
-          gh release upload "$RELEASE_TAG" artifacts/* --clobber
-      - name: Publish complete release
+      - name: Publish release notes
         if: github.event_name == 'push' || inputs.publish == true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
