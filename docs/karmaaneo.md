@@ -17,11 +17,11 @@ Use the Node version in `.tool-versions`, then:
 npm ci --no-audit --no-fund
 npm run test --workspace=@getpaseo/app -- src/assistant-file-links/parse.test.ts src/assistant-file-links/resolver.test.ts
 node scripts/verify-local-markdown.cjs
-CSC_IDENTITY_AUTO_DISCOVERY=false npm run build:desktop -- --dir --mac --arm64 --publish never -c.mac.identity=null
+CSC_IDENTITY_AUTO_DISCOVERY=false npm run build:desktop -- --dir --mac --arm64 --publish never -c.mac.identity=-
 ```
 
-Output: `packages/desktop/release/mac-arm64/KarmaanEO.app`.
-Quit the running packaged app before copying this bundle to `/Applications/KarmaanEO.app`. Retain the existing Paseo and My Paseo bundles for rollback. Building does not migrate or delete chat data.
+Output: `packages/desktop/release/mac-arm64/KarmaanEO.app`. Local ad-hoc builds disable hardened runtime: enabling it without a Developer ID Team ID prevents Electron’s framework from loading, even when signature verification passes. Verify native startup with `ELECTRON_RUN_AS_NODE=1 packages/desktop/release/mac-arm64/KarmaanEO.app/Contents/MacOS/KarmaanEO -e 'console.log(process.versions.electron)'` before installation.
+Quit the running packaged app before copying this bundle to `/Applications/KarmaanEO.app`. Keep backups outside `/Applications`; a second app bundle with the same identity causes confusing launch targets. Building does not migrate or delete chat data.
 
 ## Placement moves
 
