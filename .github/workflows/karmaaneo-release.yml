@@ -1,0 +1,146 @@
+name: KarmaanEO Release
+on:
+  push:
+    tags: ["karmaaneo-v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable karmaaneo-vX.Y.Z or beta tag
+        required: true
+        type: string
+      publish:
+        description: Publish the draft after the Apple Silicon build succeeds
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: karmaaneo-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+  ONNXRUNTIME_NODE_INSTALL: skip
+jobs:
+  validate:
+    if: github.repository == 'northmanrnd/KarmaanEO'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.20.0"
+      - name: Validate immutable release source and notes
+        id: metadata
+        shell: bash
+        run: |
+          git fetch origin karmaaneo:refs/remotes/origin/karmaaneo
+          test "$(git cat-file -t "refs/tags/$RELEASE_TAG")" = tag
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          git merge-base --is-ancestor HEAD origin/karmaaneo
+          node scripts/karmaaneo-release.mjs check --tag "$RELEASE_TAG"
+          node --test scripts/karmaaneo-release.test.mjs
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from 'node:fs';
+          import { releasePlan } from './scripts/karmaaneo-release.mjs';
+          const p = releasePlan(JSON.parse(readFileSync('package.json')).version);
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${p.version}\nprerelease=${p.prerelease}\n`);
+          NODE
+  build:
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+            arch: arm64
+            targets: zip
+    runs-on: ${{ matrix.os }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.20.0"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Build versioned desktop archives
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          ARCH: ${{ matrix.arch }}
+          TARGETS: ${{ matrix.targets }}
+        run: |
+          extra=()
+          if [[ "$PLATFORM" == mac ]]; then extra=(-c.mac.identity=- -c.mac.notarize=false); fi
+          read -r -a targets <<< "$TARGETS"
+          npm run build:desktop -- "--$PLATFORM" "${targets[@]}" "--$ARCH" --publish never "${extra[@]}"
+      - name: Verify code signature
+        run: codesign --verify --deep --strict packages/desktop/release/mac-arm64/KarmaanEO.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: karmaaneo-${{ matrix.platform }}-${{ matrix.arch }}
+          if-no-files-found: error
+          path: |
+            packages/desktop/release/KarmaanEO-*.zip
+  release:
+    needs: [validate, build]
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: karmaaneo-*
+          path: artifacts
+          merge-multiple: true
+      - name: Stage complete release with checksums
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PRERELEASE: ${{ needs.validate.outputs.prerelease }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          cd artifacts
+          test -f "KarmaanEO-$VERSION-arm64.zip"
+          sha256sum "KarmaanEO-$VERSION-arm64.zip" > SHA256SUMS.txt
+          cd ..
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            test "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" = true
+          else
+            extra=()
+            if [[ "$PRERELEASE" == true ]]; then extra=(--prerelease); fi
+            gh release create "$RELEASE_TAG" --verify-tag --draft --title "KarmaanEO $VERSION" --notes-file "releases/$RELEASE_TAG.md" "${extra[@]}"
+          fi
+          gh release upload "$RELEASE_TAG" artifacts/* --clobber
+      - name: Publish complete release
+        if: github.event_name == 'push' || inputs.publish == true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PRERELEASE: ${{ needs.validate.outputs.prerelease }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          if [[ "$PRERELEASE" == true ]]; then
+            gh release edit "$RELEASE_TAG" --draft=false --latest=false
+          else
+            gh api --paginate --slurp "repos/$GH_REPO/releases" > published-releases.json
+            latest=$(node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              import { isLatestStable } from "./scripts/karmaaneo-release.mjs";
+              console.log(isLatestStable(process.env.VERSION, JSON.parse(readFileSync("published-releases.json")).flat()));
+            ')
+            gh release edit "$RELEASE_TAG" --draft=false "--latest=$latest"
+          fi

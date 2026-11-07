@@ -1,0 +1,50 @@
+name: KarmaanEO Release Framework Checks
+on:
+  pull_request:
+    paths:
+      - "scripts/*release*"
+      - "package*.json"
+      - "packages/*/package.json"
+      - "plugins/package.json"
+      - "releases/**"
+      - ".github/workflows/karmaaneo-release*.yml"
+  push:
+    branches: [karmaaneo]
+permissions:
+  contents: read
+jobs:
+  release-framework:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.20.0"
+      - run: node --test scripts/karmaaneo-release.test.mjs
+      - run: node scripts/karmaaneo-release.mjs check
+
+  apple-silicon-archive:
+    needs: release-framework
+    runs-on: macos-latest
+    env:
+      ONNXRUNTIME_NODE_INSTALL: skip
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.20.0"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build:desktop -- --mac zip --arm64 --publish never -c.mac.identity=- -c.mac.notarize=false
+      - name: Verify archive and signature
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          test -f "packages/desktop/release/KarmaanEO-$version-arm64.zip"
+          codesign --verify --deep --strict packages/desktop/release/mac-arm64/KarmaanEO.app
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' packages/desktop/release/mac-arm64/KarmaanEO.app/Contents/Info.plist)" = "$version"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: karmaaneo-apple-silicon-candidate
+          if-no-files-found: error
+          path: packages/desktop/release/KarmaanEO-*-arm64.zip
