@@ -15,7 +15,7 @@ KarmaanEO has its own version line, starting at `0.1.0`. Its upstream source bas
 
 Use explicit major bumps for breaking contracts even before 1.0. Promotion removes the beta suffix and produces a fresh build; it does not copy the beta archive or prove no source changed. Review the diff from the tested beta and rerun acceptance checks before promotion.
 
-Root and every workspace manifest and lock entry use one version. All workspace packages are private; internal `@getpaseo/*` names remain for compatibility and are never published to npm by this framework. App version, daemon version and protocol capabilities remain separate concerns; retain [protocol compatibility](protocol-compatibility.md).
+Root and every workspace manifest and lock entry use one version. All workspace packages are private; internal `@getpaseo/*` names remain for compatibility and are never published to npm by this framework. Plugin `requirements.paseo` checks use the retained upstream plugin API baseline (`PASEO_PLUGIN_API_VERSION` in protocol/plugin-requirements), currently `0.15.1`, at both app and daemon composition boundaries. Keep that baseline separate from product releases; advance it only after integrating and validating the upstream API. App version, daemon version and protocol capabilities remain separate concerns; retain [protocol compatibility](protocol-compatibility.md).
 
 Tags are annotated and immutable: `karmaaneo-vX.Y.Z` or `karmaaneo-vX.Y.Z-beta.N`. Release notes live in `releases/<tag>.md`. Release source must be merged into the fork's `karmaaneo` branch. Inherited upstream publishers and deployment jobs are guarded to run only in `getpaseo/paseo`.
 

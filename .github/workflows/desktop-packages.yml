@@ -100,6 +100,8 @@ jobs:
     env:
       ONNXRUNTIME_NODE_INSTALL: skip
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      # Metro transforms the large generated protocol validator in a worker.
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

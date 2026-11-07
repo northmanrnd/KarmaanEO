@@ -9,3 +9,5 @@ Initial independent KarmaanEO release line, based on Paseo 0.15.1.
 Move restrictions: attached agent families and worktree project moves are rejected. Updating the app does not update an already-running daemon; activate during a planned restart. Automatic upstream updates remain disabled.
 
 macOS builds are locally/ad-hoc signed, not Apple Developer ID signed or notarized. Release artifacts do not install themselves or restart running agents.
+
+Plugin requirements retain the Paseo 0.15.1 API baseline independently of the KarmaanEO product version.

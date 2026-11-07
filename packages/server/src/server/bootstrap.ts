@@ -1,3 +1,4 @@
+import { PASEO_PLUGIN_API_VERSION } from "@getpaseo/protocol/plugin-requirements";
 import { createRestartRecovery } from "./agent/restart-recovery/index.js";
 import { sendPromptToAgent } from "./agent/agent-prompt.js";
 import { createIdleRuntimeCleanup } from "./agent/idle-runtime-cleanup/index.js";
@@ -671,18 +672,23 @@ export async function createPaseoDaemon(
   });
   const browserToolsPolicy = new DaemonConfigBrowserToolsPolicy(daemonConfigStore);
   const browserToolsBroker = new BrowserToolsBroker({});
-  const pluginRuntime: PluginService = new PluginService(logger, daemonConfigStore, daemonVersion, {
-    usageAgents: {
-      hasAgent: (id) => agentManager.getAgent(id) !== null,
-      usageSession: (id) => agentManager.usageSession(id),
+  const pluginRuntime: PluginService = new PluginService(
+    logger,
+    daemonConfigStore,
+    PASEO_PLUGIN_API_VERSION,
+    {
+      usageAgents: {
+        hasAgent: (id) => agentManager.getAgent(id) !== null,
+        usageSession: (id) => agentManager.usageSession(id),
+      },
+      managedSources: new ManagedPluginSources(config.paseoHome, {
+        registries: config.pluginRegistries,
+        defaultUrl: config.pluginRegistryUrl,
+      }),
+      builtinPlugins: resolveBuiltinPluginLoader(dependencies),
+      settingsDirectory: path.join(config.paseoHome, "plugin-settings"),
     },
-    managedSources: new ManagedPluginSources(config.paseoHome, {
-      registries: config.pluginRegistries,
-      defaultUrl: config.pluginRegistryUrl,
-    }),
-    builtinPlugins: resolveBuiltinPluginLoader(dependencies),
-    settingsDirectory: path.join(config.paseoHome, "plugin-settings"),
-  });
+  );
 
   const serverId = getOrCreateServerId(config.paseoHome, { logger });
   const daemonKeyPair = await loadOrCreateDaemonKeyPair(config.paseoHome, logger);

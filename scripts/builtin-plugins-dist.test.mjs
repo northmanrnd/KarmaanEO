@@ -1,3 +1,4 @@
+import { PASEO_PLUGIN_API_VERSION } from "../packages/protocol/dist/plugin-requirements.js";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
@@ -30,7 +31,9 @@ test("built output compiles and starts every listed built-in", async () => {
     await readFile(path.join(repoRoot, "packages/server/package.json"), "utf8"),
   );
   const settingsDirectory = await mkdtemp(path.join(os.tmpdir(), "builtin-dist-settings-"));
-  const runtime = new PluginRuntime(pino({ level: "silent" }), version, { settingsDirectory });
+  const runtime = new PluginRuntime(pino({ level: "silent" }), PASEO_PLUGIN_API_VERSION, {
+    settingsDirectory,
+  });
   runtime.bindPaseoSessionHost({
     async attachPluginSocket(_pluginId, socket) {
       const closed = new Promise((resolve) => socket.once("close", resolve));
