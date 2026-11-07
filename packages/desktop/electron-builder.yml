@@ -1,7 +1,7 @@
 npmRebuild: false
-appId: sh.paseo.desktop
-productName: Paseo
-executableName: Paseo
+appId: local.wyler.mypaseo
+productName: My Paseo
+executableName: My Paseo
 protocols:
   - name: Paseo agent link
     schemes:
@@ -45,7 +45,7 @@ mac:
   category: public.app-category.developer-tools
   icon: assets/icon.icns
   hardenedRuntime: true
-  notarize: true
+  notarize: false
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.inherit.plist
   extraResources:

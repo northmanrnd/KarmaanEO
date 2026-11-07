@@ -1,0 +1,20 @@
+My Paseo — local macOS fork
+
+Base: getpaseo/paseo v0.15.1, branch local/markdown-file-links.
+Fix: explicit Markdown file destinations may contain literal spaces. Inferred prose keeps its whitespace heuristic.
+Product: My Paseo.app, bundle ID local.wyler.mypaseo.
+Profile: retains the upstream internal app name Paseo to reuse existing preferences and chats. Run one app at a time.
+Updates: upstream app updater disabled in this fork so it cannot overwrite local changes.
+
+Validate:
+  npm run test --workspace=@getpaseo/app -- src/assistant-file-links/parse.test.ts src/assistant-file-links/resolver.test.ts
+  node scripts/verify-local-markdown.cjs
+
+Build:
+  npm ci --no-audit --no-fund
+  CSC_IDENTITY_AUTO_DISCOVERY=false npm run build:desktop -- --dir --mac --arm64 --publish never -c.mac.identity=null
+
+Output: packages/desktop/release/mac-arm64/My Paseo.app
+Install: ditto that app bundle to /Applications/My Paseo.app.
+The original /Applications/Paseo.app is retained for rollback.
+No automatic UI or computer-use verification is performed.

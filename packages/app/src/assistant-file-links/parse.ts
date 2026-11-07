@@ -229,7 +229,9 @@ export function classifyAssistantFileLink(
     };
   }
 
-  if (/\s/.test(trimmed)) {
+  // Explicit Markdown destinations may contain spaces (CommonMark angle-bracket links).
+  // Keep the whitespace heuristic only for inferred prose and inline-code tokens.
+  if (!options.explicitLink && /\s/.test(trimmed)) {
     return null;
   }
 

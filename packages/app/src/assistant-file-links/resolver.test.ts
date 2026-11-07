@@ -628,3 +628,21 @@ describe("getAssistantFileLinkToken", () => {
     ).toBe("workspace-git-service.ts:1553");
   });
 });
+
+// MD4C preserves literal spaces in angle-bracket destinations; do not assume URL encoding.
+it.each([
+  ["/Users/test/K2 Work/reports/README.md", "/Users/test/K2 Work/reports/README.md"],
+  ["/Users/test/K2%20Work/reports/README.md", "/Users/test/K2 Work/reports/README.md"],
+  ["reports/My Report.md", "/Users/test/project/reports/My Report.md"],
+  ["file:///Users/test/K2 Work/report.md", "/Users/test/K2 Work/report.md"],
+])("opens authored destinations containing spaces: %s", (href, expected) => {
+  expect(classifyForResolution({ href }, CONTEXT)).toMatchObject({
+    kind: "resolved",
+    value: { kind: "file", target: { path: expected } },
+  });
+});
+it("keeps prose with spaces from becoming inferred file links", () => {
+  expect(
+    classifyForResolution({ href: "please read report.md", markup: "linkify" }, CONTEXT),
+  ).toEqual({ kind: "resolved", value: { kind: "ignored" } });
+});
