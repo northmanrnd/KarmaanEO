@@ -5,7 +5,7 @@ KarmaanEO is a history-preserving fork of getpaseo/paseo. The default branch is 
 ## Desktop identity and state
 
 Product and executable: `KarmaanEO`. Bundle ID: `com.karmaan.karmaaneo`.
-The internal app name remains Paseo to reuse existing preferences and chats. The `paseo` CLI, URL scheme, npm package scopes and `~/.paseo` state remain unchanged for compatibility. Run only one packaged app at a time. Development uses separate state and port 6768; the packaged app uses port 6767. See [development.md](development.md).
+The runtime app/window name is KarmaanEO. Its Electron profile stays in the existing `Paseo` application-support directory to retain preferences, browser state and the single-instance lock. The `paseo` CLI, URL scheme, npm package scopes and `~/.paseo` state remain unchanged for compatibility. Run only one packaged app at a time. Development uses separate state and port 6768; the packaged app uses port 6767. See [development.md](development.md).
 
 Automatic upstream app updates remain disabled so upstream releases cannot overwrite fork changes. KarmaanEO versions start at `0.1.0`, independently of upstream. Releases target macOS Apple Silicon only; see the [release runbook](release.md) for versioning, beta promotion, immutable tags and release notes. All workspace packages are private.
 
