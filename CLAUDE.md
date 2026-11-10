@@ -1,6 +1,6 @@
-# CLAUDE.md
+# KarmaanEO agent instructions
 
-Paseo is a mobile app for monitoring and controlling your local AI coding agents from anywhere. Your dev environment, in your pocket. Connects directly to your actual development environment — your code stays on your machine.
+KarmaanEO is the Karmaan fork of Paseo, distributed for macOS Apple Silicon. See [fork identity and state](docs/karmaaneo.md). Upstream Paseo is a mobile app for monitoring and controlling your local AI coding agents from anywhere. Your dev environment, in your pocket. Connects directly to your actual development environment — your code stays on your machine.
 
 **Supported agents:** Claude Code, Codex, GitHub Copilot, OpenCode, Pi, Antigravity, and Muse Code.
 
@@ -116,11 +116,11 @@ When Mo requests an APK, use `npm run build:apk:arm64` for an ARM64 build: write
 
 See [docs/development.md](docs/development.md) for full setup, build sync requirements, and debugging.
 
-## Release branches
+## Releases and documentation
 
-Merge normal PRs into `main`, including while a beta soaks or a release is being finalized. Each
-release builds in a short-lived release workspace from `origin/main` or a release tag; see
-[release base and source](docs/release.md#release-base-and-source).
+The fork default branch is `karmaaneo`. Merge fork PRs there. Read [docs/release.md](docs/release.md) before changing versions, tags or release workflows; it owns the exact release commands and validation. The product scope is macOS Apple Silicon only. Release management means versions, notes and tags; do not add packaging or broad CI jobs unless explicitly requested. Product versions are independent of the retained Paseo plugin API baseline; do not bump that baseline during a product release. Do not enable inherited upstream publishers or publish the retained `@getpaseo/*` package names.
+
+Update the owning docs in the same PR as behavior or process changes. Keep this file (also exposed through the `AGENTS.md` symlink) as the repository map and concise operating rules; put procedures in their subject docs. Shared release and documentation standards live in [engineering-docs](https://github.com/northmanrnd/engineering-docs/blob/main/repository-releases-and-documentation.md). Distinguish implemented code, verified artifacts and installed behavior in reports. Preparing release infrastructure does not authorize publishing a release or restarting the live daemon.
 
 ## Critical rules
 

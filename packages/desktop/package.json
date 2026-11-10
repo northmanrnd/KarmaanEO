@@ -1,6 +1,6 @@
 {
   "name": "@getpaseo/desktop",
-  "version": "0.15.1",
+  "version": "0.1.0",
   "private": true,
   "description": "KarmaanEO desktop app (Electron wrapper)",
   "homepage": "https://github.com/northmanrnd/KarmaanEO",

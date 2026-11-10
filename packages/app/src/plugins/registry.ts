@@ -5,8 +5,10 @@ import { useMemo, useSyncExternalStore } from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { createPaseoApi } from "@getpaseo/client";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import { assertPluginCompatibility } from "@getpaseo/protocol/plugin-requirements";
-import { resolveAppVersion } from "@/utils/app-version";
+import {
+  assertPluginCompatibility,
+  PASEO_PLUGIN_API_VERSION,
+} from "@getpaseo/protocol/plugin-requirements";
 import { createPluginClientRuntime } from "./client-runtime";
 import { runPluginClientBundle } from "./evaluate";
 import type { InstalledPlugin } from "./types";
@@ -226,7 +228,7 @@ export const pluginRegistry = new PluginRegistry({
       };
     },
   },
-  version: resolveAppVersion(),
+  version: PASEO_PLUGIN_API_VERSION,
   createRuntime: createPluginClientRuntime,
 });
 

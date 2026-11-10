@@ -3,6 +3,10 @@ import parse from "semver/functions/parse.js";
 import validRange from "semver/ranges/valid.js";
 import satisfies from "semver/functions/satisfies.js";
 
+// The fork's product SemVer is independent of the upstream plugin contract.
+// Advance this only after integrating and validating a newer Paseo plugin API.
+export const PASEO_PLUGIN_API_VERSION = "0.15.1";
+
 export function validatePluginRequirements(requirements: PluginRequirements | undefined): void {
   const range = requirements?.paseo;
   if (range !== undefined && (!range.trim() || validRange(range) === null)) {

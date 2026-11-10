@@ -1,0 +1,94 @@
+name: KarmaanEO Release
+on:
+  push:
+    tags: ["karmaaneo-v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable karmaaneo-vX.Y.Z or beta tag
+        required: true
+        type: string
+      publish:
+        description: Publish the draft release notes after validation
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: karmaaneo-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+jobs:
+  validate:
+    if: github.repository == 'northmanrnd/KarmaanEO'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.20.0"
+      - name: Validate immutable release source and notes
+        id: metadata
+        shell: bash
+        run: |
+          git fetch origin karmaaneo:refs/remotes/origin/karmaaneo
+          test "$(git cat-file -t "refs/tags/$RELEASE_TAG")" = tag
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          git merge-base --is-ancestor HEAD origin/karmaaneo
+          node scripts/karmaaneo-release.mjs check --tag "$RELEASE_TAG"
+          node --test scripts/release-version-utils.test.mjs
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from 'node:fs';
+          import { releasePlan } from './scripts/karmaaneo-release.mjs';
+          const p = releasePlan(JSON.parse(readFileSync('package.json')).version);
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${p.version}\nprerelease=${p.prerelease}\n`);
+          NODE
+  release:
+    needs: validate
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - name: Stage release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PRERELEASE: ${{ needs.validate.outputs.prerelease }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            test "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" = true
+          else
+            extra=()
+            if [[ "$PRERELEASE" == true ]]; then extra=(--prerelease); fi
+            gh release create "$RELEASE_TAG" --verify-tag --draft --title "KarmaanEO $VERSION" --notes-file "releases/$RELEASE_TAG.md" "${extra[@]}"
+          fi
+      - name: Publish release notes
+        if: github.event_name == 'push' || inputs.publish == true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PRERELEASE: ${{ needs.validate.outputs.prerelease }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          if [[ "$PRERELEASE" == true ]]; then
+            gh release edit "$RELEASE_TAG" --draft=false --latest=false
+          else
+            gh api --paginate --slurp "repos/$GH_REPO/releases" > published-releases.json
+            latest=$(node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              import { isLatestStable } from "./scripts/karmaaneo-release.mjs";
+              console.log(isLatestStable(process.env.VERSION, JSON.parse(readFileSync("published-releases.json")).flat()));
+            ')
+            gh release edit "$RELEASE_TAG" --draft=false "--latest=$latest"
+          fi

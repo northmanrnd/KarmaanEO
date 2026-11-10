@@ -76,6 +76,22 @@ afterEach(() => {
 });
 
 describe("PluginRegistry", () => {
+  it("checks the retained Paseo API independently of the fork product version", () => {
+    registry.installCatalog(
+      "host-a",
+      [{ id: "provider", requirements: { paseo: ">=0.10.0" }, clientBundle: bundle("compatible") }],
+      { client: daemonClient, audio },
+    );
+    expect(installedPluginIds()).toEqual(["provider"]);
+    registry.installCatalog(
+      "host-a",
+      [{ id: "future", requirements: { paseo: ">=0.16.0" }, clientBundle: bundle("future") }],
+      { client: daemonClient, audio },
+    );
+    expect(installedPluginIds()).toEqual([]);
+    expect(registry.getEvaluationError("host-a", "future")).toContain("requires Paseo >=0.16.0");
+  });
+
   it("publishes synchronous setup once after storing the installation", () => {
     const snapshots: string[][] = [];
     const unsubscribe = pluginRegistry.subscribe(() => {

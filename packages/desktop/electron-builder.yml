@@ -44,7 +44,9 @@ mac:
   minimumSystemVersion: "13.0.0"
   category: public.app-category.developer-tools
   icon: assets/icon.icns
-  hardenedRuntime: true
+  # Local ad-hoc signatures have no Team ID for hardened library validation.
+  # Developer ID distribution must explicitly enable hardened runtime.
+  hardenedRuntime: false
   notarize: false
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.inherit.plist

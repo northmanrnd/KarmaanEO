@@ -5,9 +5,9 @@ KarmaanEO is a history-preserving fork of getpaseo/paseo. The default branch is 
 ## Desktop identity and state
 
 Product and executable: `KarmaanEO`. Bundle ID: `com.karmaan.karmaaneo`.
-The internal app name remains Paseo to reuse existing preferences and chats. The `paseo` CLI, URL scheme, npm package scopes and `~/.paseo` state remain unchanged for compatibility. Run only one packaged app at a time. Development uses separate state and port 6768; the packaged app uses port 6767. See [development.md](development.md).
+The runtime app/window name is KarmaanEO. Its Electron profile stays in the existing `Paseo` application-support directory to retain preferences, browser state and the single-instance lock. The `paseo` CLI, URL scheme, npm package scopes and `~/.paseo` state remain unchanged for compatibility. Run only one packaged app at a time. Development uses separate state and port 6768; the packaged app uses port 6767. See [development.md](development.md).
 
-Automatic upstream app updates remain disabled so upstream releases cannot overwrite fork changes. Signing and notarization are not configured for KarmaanEO. Do not publish using inherited npm release scripts: they still refer to upstream package names.
+Automatic upstream app updates remain disabled so upstream releases cannot overwrite fork changes. KarmaanEO versions start at `0.1.0`, independently of upstream. Releases target macOS Apple Silicon only; see the [release runbook](release.md) for versioning, beta promotion, immutable tags and release notes. All workspace packages are private.
 
 ## Validate and build
 
@@ -17,11 +17,11 @@ Use the Node version in `.tool-versions`, then:
 npm ci --no-audit --no-fund
 npm run test --workspace=@getpaseo/app -- src/assistant-file-links/parse.test.ts src/assistant-file-links/resolver.test.ts
 node scripts/verify-local-markdown.cjs
-CSC_IDENTITY_AUTO_DISCOVERY=false npm run build:desktop -- --dir --mac --arm64 --publish never -c.mac.identity=null
+CSC_IDENTITY_AUTO_DISCOVERY=false npm run build:desktop -- --dir --mac --arm64 --publish never -c.mac.identity=-
 ```
 
-Output: `packages/desktop/release/mac-arm64/KarmaanEO.app`.
-Quit the running packaged app before copying this bundle to `/Applications/KarmaanEO.app`. Retain the existing Paseo and My Paseo bundles for rollback. Building does not migrate or delete chat data.
+Output: `packages/desktop/release/mac-arm64/KarmaanEO.app`. Local ad-hoc builds disable hardened runtime: enabling it without a Developer ID Team ID prevents Electron’s framework from loading, even when signature verification passes. Verify native startup with `ELECTRON_RUN_AS_NODE=1 packages/desktop/release/mac-arm64/KarmaanEO.app/Contents/MacOS/KarmaanEO -e 'console.log(process.versions.electron)'` before installation.
+Quit the running packaged app before copying this bundle to `/Applications/KarmaanEO.app`. Keep backups outside `/Applications`; a second app bundle with the same identity causes confusing launch targets. Building does not migrate or delete chat data.
 
 ## Placement moves
 
