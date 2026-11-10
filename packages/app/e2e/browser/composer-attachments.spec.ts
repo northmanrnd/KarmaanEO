@@ -53,6 +53,36 @@ const TEST_JSON = {
 };
 
 test.describe("Composer attachments", () => {
+  test("dropped ZIP remains attached and oversized upload shows an inline error", async ({
+    page,
+    withWorkspace,
+  }) => {
+    const workspace = await withWorkspace({ prefix: "zip-drop-" });
+    await workspace.navigateTo();
+    await clickNewChat(page);
+    await expectComposerVisible(page);
+    await dropFileOnComposer(page, {
+      name: "source.zip",
+      mimeType: "application/zip",
+      buffer: Buffer.from("PK\x05\x06" + "\x00".repeat(18)),
+    });
+    await expect(page.getByTestId("composer-file-attachment-pill")).toContainText("source.zip");
+    const oversizedTransfer = await page.evaluateHandle(() => {
+      const transfer = new DataTransfer();
+      transfer.items.add(
+        new File([new Uint8Array(51 * 1024 * 1024)], "large.zip", { type: "application/zip" }),
+      );
+      return transfer;
+    });
+    await page
+      .getByTestId("message-input-root")
+      .first()
+      .dispatchEvent("drop", { dataTransfer: oversizedTransfer });
+    await oversizedTransfer.dispose();
+    await expect(page.getByTestId("composer-submission-error")).toBeVisible();
+    await expect(page.getByTestId("composer-file-attachment-pill")).toContainText("source.zip");
+  });
+
   test("selected file shows a loading attachment until upload is acknowledged", async ({
     page,
     withWorkspace,

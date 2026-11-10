@@ -9,7 +9,7 @@ const { extractFile } = require("@electron/asar");
 const { WebSocket } = require("ws");
 const assert = require("node:assert/strict");
 
-const EXECUTABLE_NAME = "Paseo";
+const EXECUTABLE_NAME = "KarmaanEO";
 const SMOKE_TIMEOUT_MS = 60_000;
 const EXIT_TIMEOUT_MS = 10_000;
 const TERMINAL_CAPTURE_ATTEMPTS = 20;
@@ -864,6 +864,36 @@ function assertLinuxDesktopIdentity(appPath) {
   }
 }
 
+async function verifyLocalComposerDrops({ page, daemonHome }) {
+  const folder = path.join(daemonHome, "drawing-folder");
+  const zip = path.join(daemonHome, "large-source.zip");
+  fs.mkdirSync(folder);
+  fs.writeFileSync(path.join(folder, "scope.txt"), "Paint walls");
+  fs.writeFileSync(zip, "PK");
+  fs.truncateSync(zip, 51 * 1024 * 1024);
+  const composer = page.getByRole("textbox", { name: "Message agent..." });
+  const bounds = await composer.boundingBox();
+  assert.ok(bounds, "Composer must be visible before the Finder drop");
+  const cdp = await page.context().newCDPSession(page);
+  const data = { items: [], files: [zip, folder], dragOperationsMask: 1 };
+  try {
+    for (const type of ["dragEnter", "dragOver", "drop"]) {
+      await cdp.send("Input.dispatchDragEvent", { type, x: bounds.x + 20, y: bounds.y + 10, data });
+    }
+    const pills = page.getByTestId("composer-workspace-file-attachment-pill");
+    const { expect } = require("@playwright/test");
+    await expect(pills).toHaveCount(2);
+    await expect(pills.filter({ hasText: "large-source.zip" })).toBeVisible();
+    await expect(pills.filter({ hasText: "drawing-folder" })).toBeVisible();
+    assert.equal(await page.getByTestId("composer-pending-file-attachment").count(), 0);
+    console.log(
+      "Packaged desktop smoke: real Finder folder and 51 MB ZIP remain attached by local path",
+    );
+  } finally {
+    await cdp.detach();
+  }
+}
+
 async function smokePackagedDesktopApp({
   appPath,
   executablePath = getExecutablePath(appPath),
@@ -953,6 +983,8 @@ async function smokePackagedDesktopApp({
       await assertSandboxState({ browser, page, expectedSandbox, stdout, stderr });
       await openSmokeWorkspace({ appPath, env, page, daemonHome });
     }
+    if (expectedSandbox === undefined) await openSmokeWorkspace({ appPath, env, page, daemonHome });
+    await verifyLocalComposerDrops({ page, daemonHome });
     await writeSmokeArtifacts({ page, stdout, stderr, userData, daemonHome });
     await stopDaemonForCleanup();
     console.log(

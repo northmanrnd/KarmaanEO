@@ -38,6 +38,28 @@ it("resolves authored root-relative links only when the target is a known comman
 });
 
 describe("shared Markdown source adaptation", () => {
+  it("renders Codex output citations as links while preserving code examples", () => {
+    const url =
+      "https://docs.google.com/document/d/1m1aPpaVoCsbc4i2xtMv08VUZa5GQgYEp931imBQjUwA/edit";
+    const citation = `:codex-file-citation{path="[${url}](${url})" purpose="output"}`;
+    expect(prepareMarkdownSource(citation).render()).toBe(`[${url}](${url})`);
+    expect(
+      prepareMarkdownSource(`:codex-file-citation{path="${url}" purpose="output"}`).render(),
+    ).toBe(`[edit](<${url}>)`);
+    expect(
+      prepareMarkdownSource(
+        ':codex-file-citation{path="/tmp/a report.pdf" purpose="output"}',
+      ).render(),
+    ).toBe("[a report.pdf](</tmp/a%20report.pdf>)");
+    for (const literal of [
+      "`" + citation + "`",
+      "```md\n" + citation + "\n```",
+      ':codex-file-citation{path="javascript:alert(1)"}',
+      ':codex-file-citation{path="/tmp/unfinished',
+    ]) {
+      expect(prepareMarkdownSource(literal).render()).toBe(literal);
+    }
+  });
   it("keeps paragraphs, fences and quotes together for the library", () => {
     const source = "First paragraph.\n\nSecond paragraph.\n\n```ts\nconst n = 1;\n```\n\n> Quote";
     expect(prepareMarkdownSource(source).render()).toBe(source);

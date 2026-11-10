@@ -1,29 +1,9 @@
+import { getClientFilePath } from "@/attachments/client-file-path";
 import { getMimeTypeFromPath } from "@/attachments/file-types";
 import { readDesktopFileBytes } from "@/attachments/selected-file";
 import type { DroppedItem } from "@/components/file-drop/types";
 import type { DesktopHostBridge } from "@/desktop/host";
 import { readTerminalFile, type TerminalFile } from "../file-paste";
-
-function getLegacyFilePath(file: File): string | null {
-  const path = Reflect.get(file, "path");
-  return typeof path === "string" && path.length > 0 ? path : null;
-}
-
-/** Where the client's own filesystem holds a dropped file; null for files that are only bytes. */
-function getClientFilePath(file: File, bridge: DesktopHostBridge | null): string | null {
-  const getPathForFile = bridge?.webUtils?.getPathForFile;
-  if (typeof getPathForFile === "function") {
-    try {
-      const path = getPathForFile(file);
-      if (typeof path === "string" && path.length > 0) {
-        return path;
-      }
-    } catch {
-      // Fall through to the legacy Electron File.path property if present.
-    }
-  }
-  return getLegacyFilePath(file);
-}
 
 function fileNameFromPath(path: string): string {
   return path.split(/[/\\]/).findLast((segment) => segment.length > 0) ?? path;

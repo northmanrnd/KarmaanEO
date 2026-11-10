@@ -1,3 +1,6 @@
+import { getClientFilePath } from "@/attachments/client-file-path";
+import { createWorkspaceFileAttachment } from "@/attachments/workspace-file";
+import type { DesktopHostBridge } from "@/desktop/host";
 import {
   getMimeTypeFromPath,
   isRasterImageFile,
@@ -57,4 +60,28 @@ export function droppedItemsToSelectedFiles(
   }
 
   return files;
+}
+
+/** Local agents can read Finder files and folders directly, without copying or size limits. */
+export function routeComposerDrop(
+  items: DroppedItem[],
+  input: { hostIsLocal: boolean; bridge: DesktopHostBridge | null },
+) {
+  const paths: string[] = [];
+  const uploads: DroppedItem[] = [];
+  for (const item of items) {
+    const isImage =
+      item.kind === "web-file" ? isRasterImageFile(item.file) : isRasterImagePath(item.path);
+    if (isImage) continue;
+    let path: string | null = null;
+    if (input.hostIsLocal) {
+      path = item.kind === "desktop-path" ? item.path : getClientFilePath(item.file, input.bridge);
+    }
+    if (path) paths.push(path);
+    else uploads.push(item);
+  }
+  return {
+    attachments: [...new Set(paths)].map((path) => createWorkspaceFileAttachment({ path })),
+    files: droppedItemsToSelectedFiles(uploads),
+  };
 }
