@@ -16,9 +16,15 @@ describe("composer dropped attachments", () => {
       "/Users/me/source.zip",
       "/Users/me/drawings",
     ]);
-    const remote = routeComposerDrop([items[0]], { hostIsLocal: false, bridge });
+    const remoteZip = new File(["zip bytes"], "source.zip");
+    const remote = routeComposerDrop([{ kind: "web-file", file: remoteZip }], {
+      hostIsLocal: false,
+      bridge,
+    });
     expect(remote.attachments).toEqual([]);
-    expect(await remote.files[0].readBytes()).toEqual(new Uint8Array(await zip.arrayBuffer()));
+    expect(await remote.files[0].readBytes()).toEqual(
+      new Uint8Array(await remoteZip.arrayBuffer()),
+    );
     expect(
       routeComposerDrop([{ kind: "desktop-path", path: "/tmp/folder" }], {
         hostIsLocal: true,
