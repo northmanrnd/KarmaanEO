@@ -1,3 +1,4 @@
+import { normalizeCodexFileCitations } from "./citations";
 import { classifyAssistantFileLink } from "@/assistant-file-links";
 import { ASSISTANT_FILE_EXTENSIONS } from "@/assistant-file-links/extensions";
 import { normalizeMarkdownHtml } from "./html";
@@ -122,7 +123,7 @@ export function prepareMarkdownSource(
   workspaceRoot?: string,
   options: { supportsSvg?: boolean; commandNames?: ReadonlySet<string> } = {},
 ) {
-  source = normalizeMarkdownHtml(source);
+  source = normalizeMarkdownHtml(normalizeCodexFileCitations(source));
   const images: MarkdownImage[] = [];
   let tree: Root | undefined;
   const getTree = () =>

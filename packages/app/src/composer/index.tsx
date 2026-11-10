@@ -1,3 +1,5 @@
+import { getDesktopHost } from "@/desktop/host";
+import { useIsLocalDaemon } from "@/hooks/use-is-local-daemon";
 import {
   useComposerEditingSession,
   useComposerFullscreen,
@@ -141,7 +143,7 @@ import type { SelectedFile } from "@/attachments/selected-file";
 import { resolveComposerAttachmentSubmitFormat } from "@/composer/attachments/submit";
 import { composerWorkspaceAttachment } from "@/composer/attachments/workspace";
 import { useWorkspaceAttachmentsForScopes } from "@/attachments/workspace-attachments-store";
-import { droppedItemsToSelectedFiles } from "@/composer/attachments/drop";
+import { routeComposerDrop } from "@/composer/attachments/drop";
 import { getFileTypeLabel } from "@/attachments/file-types";
 import { Combobox, ComboboxItem, type ComboboxOption } from "@/components/ui/combobox";
 import {
@@ -1377,6 +1379,7 @@ function ComposerContentImpl({
   const autocompleteRef = useRef<ComposerAutocompleteHandle>(null);
   const recall = useMemo(() => new ComposerRecall(), []);
   const [isProcessing, setIsProcessing] = useState(false);
+  const hostIsLocal = useIsLocalDaemon(serverId);
   const [pendingFiles, setPendingFiles] = useState<PendingFileAttachment[]>([]);
   const nextPendingFileId = useRef(0);
   const isUploadingFile = pendingFiles.length > 0;
@@ -1806,12 +1809,14 @@ function ComposerContentImpl({
         return;
       }
 
+      setSendError(null);
       const placeholders = files.map((file) => ({ id: nextPendingFileId.current++, file }));
       setPendingFiles((pending) => [...pending, ...placeholders]);
       try {
         const uploaded = await uploadFileAttachments({ client, files });
         addFiles(uploaded);
       } catch (error) {
+        setSendError(error instanceof Error ? error.message : t("composer.errors.uploadFailed"));
         console.error("[Composer] Failed to upload file:", error);
         toastErrorRef.current(
           error instanceof Error ? error.message : t("composer.errors.uploadFailed"),
@@ -1843,7 +1848,16 @@ function ComposerContentImpl({
   const handleGenericFilesDropped = useCallback(
     async (items: DroppedItem[]) => {
       try {
-        const files = droppedItemsToSelectedFiles(items);
+        const { attachments: localAttachments, files } = routeComposerDrop(items, {
+          hostIsLocal,
+          bridge: getDesktopHost(),
+        });
+        if (localAttachments.length > 0) {
+          setSelectedAttachments((current) =>
+            localAttachments.reduce(appendWorkspaceFileAttachment, current),
+          );
+          focusInput();
+        }
         if (files.length === 0) return;
         if (!client || !isConnected) {
           toastErrorRef.current(t("composer.errors.daemonClientDisconnected"));
@@ -1857,7 +1871,7 @@ function ComposerContentImpl({
         );
       }
     },
-    [client, isConnected, t, uploadSelectedFiles],
+    [client, isConnected, t, uploadSelectedFiles, hostIsLocal, setSelectedAttachments, focusInput],
   );
 
   const handleRemoveAttachment = useCallback(
@@ -2407,7 +2421,11 @@ function ComposerContentImpl({
   const sendErrorNode = useMemo(
     () =>
       sendError ? (
-        <Text accessibilityRole="alert" style={styles.sendErrorText}>
+        <Text
+          testID="composer-submission-error"
+          accessibilityRole="alert"
+          style={styles.sendErrorText}
+        >
           {sendError}
         </Text>
       ) : null,

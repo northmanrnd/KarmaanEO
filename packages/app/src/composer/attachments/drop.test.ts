@@ -1,7 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { droppedItemsToSelectedFiles } from "./drop";
+import { droppedItemsToSelectedFiles, routeComposerDrop } from "./drop";
 
 describe("composer dropped attachments", () => {
+  it("attaches local folders and large ZIPs by path, and uploads remote files", async () => {
+    const zip = new File([new Uint8Array(51 * 1024 * 1024)], "source.zip");
+    const folder = new File([], "drawings");
+    const bridge = { webUtils: { getPathForFile: (file: File) => `/Users/me/${file.name}` } };
+    const items = [
+      { kind: "web-file" as const, file: zip },
+      { kind: "web-file" as const, file: folder },
+    ];
+    const local = routeComposerDrop(items, { hostIsLocal: true, bridge });
+    expect(local.files).toEqual([]);
+    expect(local.attachments.map((attachment) => attachment.path)).toEqual([
+      "/Users/me/source.zip",
+      "/Users/me/drawings",
+    ]);
+    const remote = routeComposerDrop([items[0]], { hostIsLocal: false, bridge });
+    expect(remote.attachments).toEqual([]);
+    expect(await remote.files[0].readBytes()).toEqual(new Uint8Array(await zip.arrayBuffer()));
+    expect(
+      routeComposerDrop([{ kind: "desktop-path", path: "/tmp/folder" }], {
+        hostIsLocal: true,
+        bridge: null,
+      }).attachments[0].path,
+    ).toBe("/tmp/folder");
+    expect(routeComposerDrop([items[0]], { hostIsLocal: true, bridge: null }).files).toHaveLength(
+      1,
+    );
+  });
   it("turns non-image browser files into selected files and leaves raster images for image handling", async () => {
     const jsonFile = new File([JSON.stringify({ ok: true })], "config.json", {
       type: "application/json",

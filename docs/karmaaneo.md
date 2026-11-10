@@ -23,6 +23,10 @@ CSC_IDENTITY_AUTO_DISCOVERY=false npm run build:desktop -- --dir --mac --arm64 -
 Output: `packages/desktop/release/mac-arm64/KarmaanEO.app`. Local ad-hoc builds disable hardened runtime: enabling it without a Developer ID Team ID prevents Electron’s framework from loading, even when signature verification passes. Verify native startup with `ELECTRON_RUN_AS_NODE=1 packages/desktop/release/mac-arm64/KarmaanEO.app/Contents/MacOS/KarmaanEO -e 'console.log(process.versions.electron)'` before installation.
 Quit the running packaged app before copying this bundle to `/Applications/KarmaanEO.app`. Keep backups outside `/Applications`; a second app bundle with the same identity causes confusing launch targets. Building does not migrate or delete chat data.
 
+## Composer drops
+
+Finder drops into a chat on the built-in local daemon attach non-image files and folders by their absolute paths. The agent reads the original files in place; keep them at that location until the agent has used them. Local ZIPs bypass the upload size limit. Raster images retain the image attachment flow. Browser-only and remote-host file drops upload their bytes with the existing 50 MB limit. Upload errors remain visible beneath the composer; correct the input and drop it again to retry. Remote folders must be zipped before uploading.
+
 ## Placement moves
 
 Requires a host advertising `placementMoves`; older hosts are rejected before sending a mutation.
