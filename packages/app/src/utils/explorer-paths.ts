@@ -9,7 +9,7 @@ export function buildAbsoluteExplorerPath({
   workspaceRoot,
   entryPath,
 }: BuildAbsoluteExplorerPathInput): string {
-  const normalizedWorkspaceRoot = workspaceRoot.trim().replace(/[\\/]+$/, "");
+  const normalizedWorkspaceRoot = workspaceRoot.trim().replace(/([^\\/])[\\/]+$/, "$1");
   const normalizedEntryPath = entryPath.trim();
 
   if (!normalizedWorkspaceRoot) {
@@ -30,7 +30,7 @@ export function buildAbsoluteExplorerPath({
     return normalizedWorkspaceRoot;
   }
 
-  return `${normalizedWorkspaceRoot}${separator}${segments.join(separator)}`;
+  return `${normalizedWorkspaceRoot.replace(/[\\/]+$/, "")}${separator}${segments.join(separator)}`;
 }
 
 export function parentExplorerPath(entryPath: string): string {

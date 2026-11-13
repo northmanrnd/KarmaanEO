@@ -1,3 +1,4 @@
+import { restoreMessageAttachments } from "@/attachments/restored-message";
 import { MessagePreview, MessageSender } from "@/components/user-message";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { getAgentAttachmentPillContent } from "@/attachments/attachment-pill-content";
@@ -418,7 +419,8 @@ export const UserMessage = memo(function UserMessage({
   const hasText = message.trim().length > 0;
   const hasImages = images.length > 0;
   const hasAttachments = attachments.length > 0;
-  const showTrailingRow = !isPending && hasText && (isCompact || isNative || isHovered);
+  const showTrailingRow =
+    !isPending && (hasText || hasImages || hasAttachments) && (isCompact || isNative || isHovered);
   const formattedTimestamp = useMemo(
     () => formatMessageTimestamp(new Date(timestamp)),
     [timestamp],
@@ -430,9 +432,12 @@ export const UserMessage = memo(function UserMessage({
   const getMessageContent = useCallback(() => message, [message]);
   const handleRewind = useCallback(
     (input: { mode: RewindMode; rewoundText: string }) => {
-      return rewindMutation.rewindAgent(input);
+      return rewindMutation.rewindAgent({
+        ...input,
+        attachments: restoreMessageAttachments(images, attachments),
+      });
     },
-    [rewindMutation],
+    [rewindMutation, images, attachments],
   );
 
   const containerStyle = useMemo(

@@ -99,6 +99,10 @@ export function OpenLocationSection() {
     },
     [settings.openInSidePane, updateSettings],
   );
+  const changeLinkBrowser = useCallback(
+    (linkBrowser: "in-app" | "external") => void updateSettings({ linkBrowser }),
+    [updateSettings],
+  );
   return (
     <SettingsSection title={t("settings.layout.openInSidePane.title")}>
       <SettingsCard>
@@ -115,6 +119,15 @@ export function OpenLocationSection() {
           destination={settings.pullRequestOpenLocation}
           allowExplorer
           onDestinationChange={handleDestinationChange}
+        />
+        <SettingsSelect
+          label={t("settings.layout.openInSidePane.linkBrowser.label")}
+          value={settings.linkBrowser}
+          options={[
+            { value: "in-app", label: t("settings.layout.openInSidePane.linkBrowser.inApp") },
+            { value: "external", label: t("settings.layout.openInSidePane.linkBrowser.external") },
+          ]}
+          onValueChange={changeLinkBrowser}
         />
         <ServiceUrlRow />
       </SettingsCard>

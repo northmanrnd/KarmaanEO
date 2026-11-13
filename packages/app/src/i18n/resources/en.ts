@@ -2232,6 +2232,11 @@ export const en = {
           side: "On the side",
           explorer: "Explorer sidebar",
         },
+        linkBrowser: {
+          label: "Open links in",
+          inApp: "Built-in browser",
+          external: "Default OS browser",
+        },
         sources: {
           explorerFiles: {
             label: "Clicking a file in the Explorer sidebar",

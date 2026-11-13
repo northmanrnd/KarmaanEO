@@ -1,3 +1,4 @@
+import { dropFileOnComposer, removeAttachmentPill } from "../support/helpers/composer";
 import type { Locator } from "@playwright/test";
 import { expect, test, type Page } from "../support/fixtures";
 import { expectAgentIdle, expectAgentReadyToInterrupt } from "../support/helpers/agent-stream";
@@ -47,6 +48,49 @@ async function expectTurnCompletesNormally(
 }
 
 test.describe("Agent message rewind", () => {
+  test("returning to a message restores its file for removal and replacement", async ({ page }) => {
+    test.setTimeout(90_000);
+    const agent = await seedMockAgentWorkspace({
+      repoPrefix: "rewind-attachment-",
+      title: "Rewind attachment",
+      model: "ten-second-stream",
+    });
+    try {
+      await openAgentRoute(page, agent);
+      await expectComposerVisible(page);
+      await dropFileOnComposer(page, {
+        name: "original.json",
+        mimeType: "application/json",
+        buffer: Buffer.from('{"original":true}'),
+      });
+      await expect(page.getByTestId("composer-file-attachment-pill")).toBeVisible();
+      const prompt = "Read my attachment";
+      const message = await completeSubmittedTurn(page, agent, prompt);
+      await page.reload();
+      await expect(message).toBeVisible();
+      await rewindConversation(page, message, prompt);
+      await expectComposerDraft(page, prompt);
+      const pill = page.getByTestId("composer-restored-attachment-pill");
+      await expect(pill).toContainText("original.json");
+      await removeAttachmentPill(
+        page,
+        "composer-restored-attachment-pill",
+        "Remove file attachment",
+      );
+      await expect(pill).toHaveCount(0);
+      await dropFileOnComposer(page, {
+        name: "replacement.json",
+        mimeType: "application/json",
+        buffer: Buffer.from('{"replacement":true}'),
+      });
+      await expect(page.getByTestId("composer-file-attachment-pill")).toContainText(
+        "replacement.json",
+      );
+    } finally {
+      await agent.cleanup();
+    }
+  });
+
   test("rewinds a submitted prompt without replaying history and preserves a human draft", async ({
     page,
   }) => {

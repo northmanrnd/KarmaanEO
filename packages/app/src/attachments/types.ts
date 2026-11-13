@@ -104,6 +104,7 @@ export interface WorkspaceFileComposerAttachment {
 }
 
 export type UserComposerAttachment =
+  | { kind: "restored_attachment"; attachment: AgentAttachment }
   | { kind: "image"; metadata: AttachmentMetadata }
   | { kind: "file"; attachment: UploadedFileAttachment }
   | WorkspaceFileComposerAttachment

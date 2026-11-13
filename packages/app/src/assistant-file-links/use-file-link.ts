@@ -1,9 +1,10 @@
+import { isElectronRuntime } from "@/desktop/host";
+import { openExternalUrl } from "@/utils/open-external-url";
 import { useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import type { OpenFileDisposition } from "@/workspace/file-open";
-import { openExternalUrl } from "@/utils/open-external-url";
 import { formatFileLinkTooltipPath } from "./tooltip-path";
 import type { InlinePathTarget } from "./parse";
 import {
@@ -335,7 +336,15 @@ async function dispatchExternalUrl(input: {
   ) {
     return;
   }
-  await openExternalUrl(input.url);
+  if (!isElectronRuntime()) {
+    await openExternalUrl(input.url);
+    return;
+  }
+  const { openPreferredLink } = await import("@/utils/open-preferred-link");
+  await openPreferredLink(input.url, {
+    serverId: current.serverId,
+    workspaceRoot: current.workspaceRoot,
+  });
 }
 
 async function dispatchUnresolvedError(input: {
