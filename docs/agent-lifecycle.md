@@ -379,3 +379,7 @@ Each agent is a single JSON file. Fields relevant to this doc:
 | `lastStatus`                                 | `AgentStatus` | `initializing` / `idle` / `running` / `error` / `closed`                           |
 
 See [`docs/data-model.md`](./data-model.md) for the full agent record.
+
+## Messages during compaction
+
+The chat composer queues text and attachments while the loaded timeline reports compaction in progress, including forced sends. Send-now actions and automatic queue drains wait until the compaction marker completes. The existing queue drains when the agent becomes idle; if automatic compaction resumes an active turn, the message waits for that turn to finish. Failed dispatches return the message to the queue.

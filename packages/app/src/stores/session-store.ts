@@ -352,6 +352,18 @@ export function selectAgentSentMessages(
   return messages;
 }
 
+/** Compaction is a delivery barrier even when a manual compact has no foreground turn. */
+export function selectAgentIsCompacting(
+  session: SessionState | undefined,
+  agentId: string,
+): boolean {
+  return (
+    session?.agentStreamTail
+      .get(agentId)
+      ?.some((item) => item.kind === "compaction" && item.status === "loading") ?? false
+  );
+}
+
 export function selectAgentTurnPresentation(
   session: SessionState | undefined,
   agentId: string,
