@@ -20,25 +20,29 @@ test("continuation drafts retain editable handoff across reload and link on firs
     title: "Original work",
     initialPrompt: "Keep the original goal and progress",
   });
-  const client = await connectDaemonClient<DaemonClient>({ clientIdPrefix: "continuation-test" });
+  const client = await connectDaemonClient<DaemonClient>({
+    clientIdPrefix: "continuation-test",
+  });
   try {
     await source.client.waitForFinish(source.agentId, 30_000);
     const original = await client.fetchAgent(source.agentId);
     await openAgentRoute(page, source);
     await expectComposerVisible(page);
     await page.getByTestId("agent-continue").click();
-    await expect(page.getByTestId("continuation-draft-notice")).toBeVisible();
+    await expect(page.getByTestId("agent-continuation-tab-icon").first()).toBeVisible();
     await expect(
       page.getByTestId("composer-restored-attachment-pill").filter({ hasText: "Chat history" }),
     ).toBeVisible();
-    await expect(composerInput(page)).toHaveValue(/Continue the work/);
+    await expect(composerInput(page)).toHaveValue(
+      "Continue the work from the attached conversation history.",
+    );
     const before = await client.fetchAgents();
     expect(
       before.entries.filter((entry) => entry.agent.workspaceId === source.workspaceId),
     ).toHaveLength(1);
     await fillComposerDraft(page, "Finish the remaining work; preserve the earlier decisions.");
     await page.reload();
-    await expect(page.getByTestId("continuation-draft-notice")).toBeVisible();
+    await expect(page.getByTestId("agent-continuation-tab-icon").first()).toBeVisible();
     await expect(composerInput(page)).toHaveValue(
       "Finish the remaining work; preserve the earlier decisions.",
     );
@@ -54,7 +58,9 @@ test("continuation drafts retain editable handoff across reload and link on firs
     );
     await page.keyboard.press("Escape");
     await selectModel(page, "Ten second stream");
-    await page.screenshot({ path: "/private/tmp/karmaaneo-continuation-draft.png" });
+    await page.screenshot({
+      path: "/private/tmp/karmaaneo-continuation-draft.png",
+    });
     await page.getByRole("button", { name: "Send message", exact: true }).click();
     await expect(
       page.getByTestId("agent-continuation-source").filter({ visible: true }),
@@ -73,7 +79,9 @@ test("continuation drafts retain editable handoff across reload and link on firs
     await expect(page.getByTestId(`agent-continuation-next-${successor!.id}`)).toBeVisible();
     await page.reload();
     await expect(page.getByTestId(`agent-continuation-next-${successor!.id}`)).toBeVisible();
-    await page.screenshot({ path: "/private/tmp/karmaaneo-continuation-linked.png" });
+    await page.screenshot({
+      path: "/private/tmp/karmaaneo-continuation-linked.png",
+    });
   } finally {
     await client.close();
     await source.cleanup();
@@ -86,7 +94,9 @@ test("existing agents can be linked, reject a cycle, and remove the link", async
     repoPrefix: "continuation-manual-",
     title: "Earlier agent",
   });
-  const client = await connectDaemonClient<DaemonClient>({ clientIdPrefix: "continuation-test" });
+  const client = await connectDaemonClient<DaemonClient>({
+    clientIdPrefix: "continuation-test",
+  });
   try {
     const later = await client.createAgent({
       provider: "mock",
@@ -96,7 +106,10 @@ test("existing agents can be linked, reject a cycle, and remove the link", async
       modeId: "load-test",
       model: "e2e-fast-stream",
     });
-    await openAgentRoute(page, { workspaceId: source.workspaceId, agentId: later.id });
+    await openAgentRoute(page, {
+      workspaceId: source.workspaceId,
+      agentId: later.id,
+    });
     await expectComposerVisible(page);
     await page.getByTestId("agent-continuation-link").filter({ visible: true }).click();
     await page.getByTestId(`agent-continuation-option-${source.agentId}`).click();

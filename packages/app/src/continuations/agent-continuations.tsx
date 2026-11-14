@@ -93,7 +93,11 @@ export function AgentContinuations({
   );
   const open = useCallback(
     (id: string) => {
-      navigateToWorkspace({ serverId, workspaceId, target: { kind: "agent", agentId: id } });
+      navigateToWorkspace({
+        serverId,
+        workspaceId,
+        target: { kind: "agent", agentId: id },
+      });
     },
     [serverId, workspaceId],
   );
@@ -103,7 +107,9 @@ export function AgentContinuations({
       setPending(true);
       setError(null);
       try {
-        await client.updateAgent(agentId, { labels: { [CONTINUED_FROM_AGENT_ID_LABEL]: source } });
+        await client.updateAgent(agentId, {
+          labels: { [CONTINUED_FROM_AGENT_ID_LABEL]: source },
+        });
         await refresh();
         setPicker(false);
       } catch (err) {
@@ -117,7 +123,13 @@ export function AgentContinuations({
   const startContinuation = useCallback(async () => {
     setPending(true);
     try {
-      await fork({ agentId, agent, workspaceId, target: "tab", continuation: true });
+      await fork({
+        agentId,
+        agent,
+        workspaceId,
+        target: "tab",
+        continuation: true,
+      });
     } finally {
       setPending(false);
     }
@@ -190,7 +202,9 @@ export function AgentContinuations({
           id={next.id}
           testID={`agent-continuation-next-${next.id}`}
           onSelect={open}
-          label={t("continuations.to", { title: next.title || next.id.slice(0, 8) })}
+          label={t("continuations.to", {
+            title: next.title || next.id.slice(0, 8),
+          })}
         />
       ))}
       {error && !picker ? (
@@ -256,18 +270,6 @@ function ContinuationLinkButton({
   );
 }
 
-export function ContinuationDraftNotice({ sourceId }: { sourceId?: string }) {
-  const { t } = useTranslation();
-  if (!sourceId) return null;
-  return (
-    <View style={styles.container} testID="continuation-draft-notice">
-      <Text style={styles.text}>
-        {t("continuations.draftNotice", { sourceId: sourceId.slice(0, 8) })}
-      </Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create((theme) => ({
   container: {
     paddingHorizontal: theme.spacing[3],
@@ -275,7 +277,12 @@ const styles = StyleSheet.create((theme) => ({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.borderAccent,
   },
-  row: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: theme.spacing[1] },
+  row: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: theme.spacing[1],
+  },
   body: { padding: theme.spacing[4], gap: theme.spacing[3] },
   list: { maxHeight: 320 },
   text: { color: theme.colors.foreground, fontSize: theme.fontSize.sm },

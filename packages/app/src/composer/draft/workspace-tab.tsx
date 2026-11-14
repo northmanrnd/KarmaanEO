@@ -1,5 +1,4 @@
 import { useHostFeature } from "@/runtime/host-features";
-import { ContinuationDraftNotice } from "@/continuations/agent-continuations";
 import { CONTINUED_FROM_AGENT_ID_LABEL } from "@getpaseo/protocol/agent-labels";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Keyboard, ScrollView, StyleSheet as RNStyleSheet, Text, View } from "react-native";
@@ -190,7 +189,11 @@ async function submitDraftCreateRequest(input: {
   const imagesData = await encodeImages(images);
   const options = {
     ...(input.continuedFromAgentId
-      ? { labels: { [CONTINUED_FROM_AGENT_ID_LABEL]: input.continuedFromAgentId } }
+      ? {
+          labels: {
+            [CONTINUED_FROM_AGENT_ID_LABEL]: input.continuedFromAgentId,
+          },
+        }
       : {}),
     idempotencyKey: input.draftId,
     config,
@@ -409,7 +412,9 @@ export function WorkspaceDraftAgentTab({
   const isComposerFullscreen = useComposerFullscreen(editingSession);
   const { onLayout: onInputAreaLayout, isBelow: isCompactComposerLayout } = useContainerWidthBelow(
     COMPACT_CONTENT_WIDTH,
-    { initialIsBelow: isCompactFormFactor },
+    {
+      initialIsBelow: isCompactFormFactor,
+    },
   );
   const workspaceAttachmentScopeKey = useWorkspaceAttachmentScopeKey({
     serverId,
@@ -432,7 +437,10 @@ export function WorkspaceDraftAgentTab({
       }
       openWorkspaceChanges({
         isCompact: isCompactFormFactor,
-        workspaceKey: buildWorkspaceTabPersistenceKey({ serverId, workspaceId: workspaceId ?? "" }),
+        workspaceKey: buildWorkspaceTabPersistenceKey({
+          serverId,
+          workspaceId: workspaceId ?? "",
+        }),
         preferences: openInSidePane,
       });
     },
@@ -563,7 +571,11 @@ export function WorkspaceDraftAgentTab({
     if (autoSubmitKeyRef.current === submitKey) {
       return;
     }
-    const submission = consumePendingAutoSubmit({ serverId, workspaceId, draftId });
+    const submission = consumePendingAutoSubmit({
+      serverId,
+      workspaceId,
+      draftId,
+    });
     if (!submission) {
       return;
     }
@@ -651,7 +663,6 @@ export function WorkspaceDraftAgentTab({
 
   return (
     <FileDropZone style={styles.container}>
-      <ContinuationDraftNotice sourceId={continuedFromAgentId} />
       <ComposerDock fullscreen={isComposerFullscreen}>
         {dockContent}
         <View style={animatedStaticStyles.inputAreaWrapper} onLayout={onInputAreaLayout}>
@@ -680,7 +691,10 @@ export function WorkspaceDraftAgentTab({
             cwd={composerState.workingDir}
             clearDraft={draftInput.clear}
             editingSession={editingSession}
-            autoFocus={shouldAutoFocusWorkspaceDraftComposer({ isPaneFocused, isSubmitting })}
+            autoFocus={shouldAutoFocusWorkspaceDraftComposer({
+              isPaneFocused,
+              isSubmitting,
+            })}
             autoFocusKey={String(draftInput.attachmentFocusRequestId)}
             onFocusInput={handleFocusInputCallback}
             commandDraft={composerState.commandDraft}
