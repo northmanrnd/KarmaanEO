@@ -1,3 +1,8 @@
+import {
+  CONTINUED_FROM_AGENT_ID_LABEL,
+  getContinuedFromAgentId,
+} from "@getpaseo/protocol/agent-labels";
+import { buildAgentForkContextAttachment } from "./activity-curator.js";
 import type { AttachedAgentTool, PluginAgentToolsRuntime } from "../plugins/agent-tools.js";
 import type { AgentToolResult } from "@getpaseo/plugin/server";
 import type { RuntimeCleanupCandidate } from "./idle-runtime-cleanup/index.js";
@@ -1345,12 +1350,84 @@ export class AgentManager {
     return this.providerSubagents.fetchTimeline(parentAgentId, subagentId, options);
   }
 
+  private continuationTail: Promise<unknown> = Promise.resolve();
+
+  private withContinuationGraph<T>(mutation: () => Promise<T>): Promise<T> {
+    const result = this.continuationTail.catch(() => undefined).then(mutation);
+    this.continuationTail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
+  private withContinuationLabels<T>(
+    labels: AgentLabelPatch | undefined,
+    mutation: () => Promise<T>,
+  ): Promise<T> {
+    return labels && Object.hasOwn(labels, CONTINUED_FROM_AGENT_ID_LABEL)
+      ? this.withContinuationGraph(mutation)
+      : mutation();
+  }
+
+  private async validateContinuation(
+    agentId: string,
+    workspaceId: string | undefined,
+    labels: Record<string, string>,
+  ) {
+    const sourceId = getContinuedFromAgentId(labels);
+    if (!sourceId) return;
+    const records = await this.requireRegistry().list();
+    const byId = new Map(records.map((record) => [record.id, record]));
+    const seen = new Set([agentId]);
+    let id: string | null = sourceId;
+    while (id) {
+      if (seen.has(id)) throw new Error("Continuation links cannot form a cycle");
+      seen.add(id);
+      const source = byId.get(id);
+      if (!source || source.internal) throw new Error("Continuation source is unavailable");
+      if (!workspaceId || source.workspaceId !== workspaceId)
+        throw new Error("Continuation agents must belong to the same workspace");
+      id = getContinuedFromAgentId(source.labels);
+    }
+  }
+
+  /** Read only locally retained history: never start, resume or query a provider. */
+  async buildStoredContinuationContext(agentId: string) {
+    const record = await this.requireRegistry().get(agentId);
+    if (!record || record.internal) throw new Error("Continuation source is unavailable");
+    const durable = (await this.durableTimelineStore?.getCommittedRows(agentId)) ?? [];
+    const live = this.timelineStore.has(agentId) ? this.timelineStore.getRows(agentId) : [];
+    // Live projection rows can span several committed chunks. Replace their whole range.
+    const rows = new Map(
+      durable
+        .filter(
+          (row) =>
+            !live.some((current) => row.seq >= current.seqStart && row.seq <= current.seqEnd),
+        )
+        .map((row) => [row.seq, row]),
+    );
+    for (const row of live) rows.set(row.seq, row);
+    if (!rows.size)
+      throw new Error(
+        "No locally retained history is available. Open the source history first, or link an existing agent manually.",
+      );
+    return buildAgentForkContextAttachment({
+      rows: [...rows.values()].sort((a, b) => a.seq - b.seq),
+      agentTitle: record.title,
+      cwd: record.cwd,
+    });
+  }
+
   createAgent(
     config: AgentSessionConfig,
     agentId: string | undefined,
     options: CreateAgentOptions,
   ): Promise<ManagedAgent> {
-    return this.trackAgentRegistrationOperation(this.createAgentInternal(config, agentId, options));
+    const create = () => this.createAgentInternal(config, agentId, options);
+    return this.trackAgentRegistrationOperation(
+      getContinuedFromAgentId(options.labels) ? this.withContinuationGraph(create) : create(),
+    );
   }
 
   private async createAgentInternal(
@@ -1368,6 +1445,7 @@ export class AgentManager {
       config = { ...request.config, internal: config.internal };
       options = { ...options, env: request.env };
     }
+    await this.validateContinuation(resolvedAgentId, options.workspaceId, options.labels ?? {});
     await this.deleteAgentState(resolvedAgentId);
     const { storedConfig, launchConfig, paseoToolPolicy } = await this.prepareSessionConfig(
       config,
@@ -2287,10 +2365,19 @@ export class AgentManager {
   }
 
   async setLabels(agentId: string, labels: Record<string, string>): Promise<void> {
-    await this.runLifecycleMutation(agentId, async () => {
-      const agent = this.requireAgent(agentId);
-      await this.writeLabels(agent.id, labels);
-    });
+    await this.withContinuationLabels(labels, () =>
+      this.runLifecycleMutation(agentId, async () => {
+        const agent = this.requireAgent(agentId);
+        if (Object.hasOwn(labels, CONTINUED_FROM_AGENT_ID_LABEL)) {
+          await this.validateContinuation(
+            agentId,
+            agent.workspaceId,
+            applyLabelPatch(agent.labels, labels),
+          );
+        }
+        await this.writeLabels(agent.id, labels);
+      }),
+    );
   }
 
   private async writeLabels(agentId: string, patch: AgentLabelPatch): Promise<WriteLabelsResult> {
@@ -2379,48 +2466,56 @@ export class AgentManager {
 
   /** Rehome a standalone session without restarting its provider or changing cwd. */
   async moveAgentToWorkspace(agentId: string, workspaceId: string): Promise<void> {
-    return this.runLifecycleMutation(agentId, async () => {
-      const registry = this.requireRegistry();
-      const record = await registry.get(agentId);
-      if (!record || record.archivedAt || record.internal)
-        throw new Error("Agent not found or not movable");
-      if (record.workspaceId === workspaceId) return;
-      if (this.hasInFlightRun(agentId))
-        throw new Error("Wait for the current turn to finish before moving this agent");
-      const family = await registry.list();
-      if (
-        getParentAgentIdFromLabels(record.labels) ||
-        Array.from(this.agents.values()).some(
-          (child) => getParentAgentIdFromLabels(child.labels) === agentId,
-        ) ||
-        family.some((child) => getParentAgentIdFromLabels(child.labels) === agentId)
-      ) {
-        throw new Error(
-          "Attached agent families cannot be moved independently; detach the agents first",
-        );
-      }
-      const live = this.agents.get(agentId);
-      const previous = live?.workspaceId;
-      // Update the live projection first so subsequent turn snapshots use the destination.
-      if (live) live.workspaceId = workspaceId;
-      try {
-        if (live) await this.persistSnapshot(live);
-        else
-          await registry.upsert({
-            ...record,
-            workspaceId,
-            updatedAt: this.nextStoredUpdatedAt(record),
-          });
-      } catch (error) {
-        if (live) live.workspaceId = previous;
-        throw error;
-      }
-      if (live) this.emitState(live, { persist: false });
-      else {
-        const updated = await registry.get(agentId);
-        if (updated) this.dispatchStoredAgentState(updated);
-      }
-    });
+    return this.withContinuationGraph(() =>
+      this.runLifecycleMutation(agentId, async () => {
+        const registry = this.requireRegistry();
+        const record = await registry.get(agentId);
+        if (!record || record.archivedAt || record.internal)
+          throw new Error("Agent not found or not movable");
+        if (record.workspaceId === workspaceId) return;
+        if (this.hasInFlightRun(agentId))
+          throw new Error("Wait for the current turn to finish before moving this agent");
+        const family = await registry.list();
+        if (
+          getContinuedFromAgentId(record.labels) ||
+          family.some((other) => getContinuedFromAgentId(other.labels) === agentId)
+        ) {
+          throw new Error("Remove continuation links before moving an agent to another workspace");
+        }
+        if (
+          getParentAgentIdFromLabels(record.labels) ||
+          Array.from(this.agents.values()).some(
+            (child) => getParentAgentIdFromLabels(child.labels) === agentId,
+          ) ||
+          family.some((child) => getParentAgentIdFromLabels(child.labels) === agentId)
+        ) {
+          throw new Error(
+            "Attached agent families cannot be moved independently; detach the agents first",
+          );
+        }
+        const live = this.agents.get(agentId);
+        const previous = live?.workspaceId;
+        // Update the live projection first so subsequent turn snapshots use the destination.
+        if (live) live.workspaceId = workspaceId;
+        try {
+          if (live) await this.persistSnapshot(live);
+          else
+            await registry.upsert({
+              ...record,
+              workspaceId,
+              updatedAt: this.nextStoredUpdatedAt(record),
+            });
+        } catch (error) {
+          if (live) live.workspaceId = previous;
+          throw error;
+        }
+        if (live) this.emitState(live, { persist: false });
+        else {
+          const updated = await registry.get(agentId);
+          if (updated) this.dispatchStoredAgentState(updated);
+        }
+      }),
+    );
   }
 
   notifyAgentState(agentId: string): void {
@@ -2523,9 +2618,11 @@ export class AgentManager {
     agentId: string,
     updates?: { workspaceId?: string; labels?: AgentLabelPatch },
   ): Promise<boolean> {
-    return this.runLifecycleMutation(agentId, () =>
-      this.unarchiveSnapshotUnlocked(agentId, updates),
-    );
+    const restore = () =>
+      this.runLifecycleMutation(agentId, () => this.unarchiveSnapshotUnlocked(agentId, updates));
+    return updates?.workspaceId || updates?.labels
+      ? this.withContinuationGraph(restore)
+      : restore();
   }
 
   private async unarchiveSnapshotUnlocked(
@@ -2536,6 +2633,19 @@ export class AgentManager {
     const record = await registry.get(agentId);
     if (!record || !record.archivedAt) {
       return false;
+    }
+
+    if (updates?.workspaceId || updates?.labels) {
+      const workspaceId = updates.workspaceId ?? record.workspaceId;
+      const labels = applyLabelPatch(record.labels, updates.labels ?? {});
+      await this.validateContinuation(agentId, workspaceId, labels);
+      if (workspaceId !== record.workspaceId) {
+        const successors = (await registry.list()).filter(
+          (other) => getContinuedFromAgentId(other.labels) === agentId,
+        );
+        if (successors.some((other) => other.workspaceId !== workspaceId))
+          throw new Error("Continuation agents must belong to the same workspace");
+      }
     }
 
     // Close and native restore share the lifecycle lane with persisted resume.
@@ -2579,8 +2689,19 @@ export class AgentManager {
       labels?: Record<string, string>;
     },
   ): Promise<void> {
-    await this.runLifecycleMutation(agentId, () =>
-      this.updateAgentMetadataUnlocked(agentId, updates),
+    await this.withContinuationLabels(updates.labels, () =>
+      this.runLifecycleMutation(agentId, async () => {
+        if (updates.labels && Object.hasOwn(updates.labels, CONTINUED_FROM_AGENT_ID_LABEL)) {
+          const record = await this.requireRegistry().get(agentId);
+          if (!record || record.internal) throw new Error("Agent is unavailable");
+          await this.validateContinuation(
+            agentId,
+            record.workspaceId,
+            applyLabelPatch(record.labels, updates.labels),
+          );
+        }
+        await this.updateAgentMetadataUnlocked(agentId, updates);
+      }),
     );
   }
 
@@ -2602,7 +2723,8 @@ export class AgentManager {
       return;
     }
 
-    await this.writeStoredMetadata(agentId, updates);
+    const record = await this.writeStoredMetadata(agentId, updates);
+    this.dispatchStoredAgentState(record);
   }
 
   private async runLifecycleMutation<T>(agentId: string, mutation: () => Promise<T>): Promise<T> {

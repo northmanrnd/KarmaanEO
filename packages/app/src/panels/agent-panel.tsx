@@ -1,3 +1,4 @@
+import { AgentContinuations } from "@/continuations/agent-continuations";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -1228,6 +1229,13 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
 
   const dockContent = (
     <View style={styles.contentContainer}>
+      <AgentContinuations
+        serverId={serverId}
+        workspaceId={workspaceId}
+        agentId={agentId}
+        agent={effectiveAgent}
+        toast={toastApi}
+      />
       {streamContent}
 
       {showHistorySyncError ? (

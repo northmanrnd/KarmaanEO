@@ -72,3 +72,19 @@ describe("restored message attachments", () => {
     expect(collectForkAttachments([first], { epoch: "old", seq: 2 })).toEqual([]);
   });
 });
+
+it("retains readable continuation history through persisted drafts and submits it unchanged", () => {
+  const history = {
+    type: "text" as const,
+    mimeType: "text/plain",
+    contextKind: "chat_history" as const,
+    title: "Chat history",
+    text: "Earlier goal\nDecision: preserve the original session\nNext: finish the remaining work",
+  };
+  const saved = UserComposerAttachmentSchema.parse(
+    JSON.parse(JSON.stringify({ kind: "restored_attachment", attachment: history })),
+  );
+  expect(
+    splitComposerAttachmentsForSubmit([saved, ...restoreMessageAttachments([], [file])]),
+  ).toEqual({ images: [], attachments: [history, file] });
+});

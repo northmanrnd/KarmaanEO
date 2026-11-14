@@ -196,3 +196,24 @@ describe("plugin panel tab identity", () => {
     expect(agent).toBe("plugin_agent_6_review_7_details_7_agent-1");
   });
 });
+
+test("continuation draft identity retains its source across normalization and distinguishes relinking", () => {
+  const setup = {
+    provider: "mock",
+    cwd: "/workspace",
+    model: "fast",
+    modeId: null,
+    thinkingOptionId: null,
+    featureValues: {},
+    continuedFromAgentId: " source-a ",
+  };
+  const target = normalizeWorkspaceTabTarget({ kind: "draft", draftId: "draft-a", setup });
+  expect(target).toMatchObject({ setup: { continuedFromAgentId: "source-a" } });
+  expect(
+    workspaceTabTargetsEqual(target!, {
+      kind: "draft",
+      draftId: "draft-a",
+      setup: { ...setup, continuedFromAgentId: "source-b" },
+    }),
+  ).toBe(false);
+});

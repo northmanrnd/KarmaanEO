@@ -1,3 +1,5 @@
+import { useHostFeature } from "@/runtime/host-features";
+import { CONTINUED_FROM_AGENT_ID_LABEL } from "@getpaseo/protocol/agent-labels";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Keyboard, ScrollView, StyleSheet as RNStyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
@@ -68,6 +70,15 @@ interface AutoSubmitConfig {
   featureValues: Record<string, unknown>;
 }
 
+function requireContinuationHost(sourceId: string | undefined, supported: boolean) {
+  if (sourceId && !supported)
+    throw new Error("Update the host before sending this continuation draft");
+}
+
+function continuationSource(setup: WorkspaceDraftTabSetup | null): string | undefined {
+  return setup?.continuedFromAgentId;
+}
+
 function resolveAutoSubmitConfig(
   pending: {
     provider: string;
@@ -116,6 +127,7 @@ function resolveDraftModeId(input: {
 }
 
 async function submitDraftCreateRequest(input: {
+  continuedFromAgentId?: string;
   draftId: string;
   attempt: { clientMessageId: string };
   text: string;
@@ -176,6 +188,13 @@ async function submitDraftCreateRequest(input: {
   const attachmentsArray = Array.isArray(attachments) ? attachments : undefined;
   const imagesData = await encodeImages(images);
   const options = {
+    ...(input.continuedFromAgentId
+      ? {
+          labels: {
+            [CONTINUED_FROM_AGENT_ID_LABEL]: input.continuedFromAgentId,
+          },
+        }
+      : {}),
     idempotencyKey: input.draftId,
     config,
     workspaceId,
@@ -312,6 +331,8 @@ export function WorkspaceDraftAgentTab({
   }));
   const workspaceDirectory = workspaceFields?.workspaceDirectory || null;
   const draftSetup = initialSetup ?? null;
+  const continuedFromAgentId = continuationSource(draftSetup);
+  const supportsContinuations = useHostFeature(serverId, "agentContinuations");
   const draftWorkingDirectory = resolveDraftWorkingDirectory({
     workspaceDirectory,
     initialSetup: draftSetup,
@@ -391,7 +412,9 @@ export function WorkspaceDraftAgentTab({
   const isComposerFullscreen = useComposerFullscreen(editingSession);
   const { onLayout: onInputAreaLayout, isBelow: isCompactComposerLayout } = useContainerWidthBelow(
     COMPACT_CONTENT_WIDTH,
-    { initialIsBelow: isCompactFormFactor },
+    {
+      initialIsBelow: isCompactFormFactor,
+    },
   );
   const workspaceAttachmentScopeKey = useWorkspaceAttachmentScopeKey({
     serverId,
@@ -414,7 +437,10 @@ export function WorkspaceDraftAgentTab({
       }
       openWorkspaceChanges({
         isCompact: isCompactFormFactor,
-        workspaceKey: buildWorkspaceTabPersistenceKey({ serverId, workspaceId: workspaceId ?? "" }),
+        workspaceKey: buildWorkspaceTabPersistenceKey({
+          serverId,
+          workspaceId: workspaceId ?? "",
+        }),
         preferences: openInSidePane,
       });
     },
@@ -466,11 +492,13 @@ export function WorkspaceDraftAgentTab({
         selectModelMessage: t("workspaceSetup.errors.selectModel"),
       }),
     createRequest: async ({ attempt, text, images, attachments, cwd }) => {
+      requireContinuationHost(continuedFromAgentId, supportsContinuations);
       if (pendingAutoSubmit?.agentCreation) {
         const result = await pendingAutoSubmit.agentCreation.result;
         return { agentId: result.id, result };
       }
       return submitDraftCreateRequest({
+        continuedFromAgentId,
         draftId,
         attempt,
         text,
@@ -543,7 +571,11 @@ export function WorkspaceDraftAgentTab({
     if (autoSubmitKeyRef.current === submitKey) {
       return;
     }
-    const submission = consumePendingAutoSubmit({ serverId, workspaceId, draftId });
+    const submission = consumePendingAutoSubmit({
+      serverId,
+      workspaceId,
+      draftId,
+    });
     if (!submission) {
       return;
     }
@@ -659,7 +691,10 @@ export function WorkspaceDraftAgentTab({
             cwd={composerState.workingDir}
             clearDraft={draftInput.clear}
             editingSession={editingSession}
-            autoFocus={shouldAutoFocusWorkspaceDraftComposer({ isPaneFocused, isSubmitting })}
+            autoFocus={shouldAutoFocusWorkspaceDraftComposer({
+              isPaneFocused,
+              isSubmitting,
+            })}
             autoFocusKey={String(draftInput.attachmentFocusRequestId)}
             onFocusInput={handleFocusInputCallback}
             commandDraft={composerState.commandDraft}
