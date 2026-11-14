@@ -55,3 +55,18 @@ git push -u origin HEAD
 ```
 
 Preserve the upstream Apache-2.0 license and attribution. Keep fork-specific changes focused to simplify future upstream merges.
+
+### Reopening closed agent tabs
+
+Command–Shift–T (Control–Shift–T off macOS) reopens the most recently closed
+recoverable tab in the current workspace instead of opening a terminal. Agent tabs
+reuse their original agent ID, conversation, title and saved composer draft. If closing
+archived the agent, reopening waits for that operation and unarchives the same session.
+As with History → Unarchive, the provider's saved transcript rebuilds the conversation;
+Drafts, including their attachments, survive removal from the active directory; only
+entity deletion clears them. Existing close confirmations and archive behavior still
+apply; reopening cannot resume work canceled by archiving.
+
+The last 20 recoverable tabs per workspace are saved across reloads. File, draft and
+other passive tabs can also reopen. Destroyed terminal sessions and browser instances,
+and empty launchers, are excluded. With no closed tab the shortcut does nothing.

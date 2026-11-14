@@ -585,6 +585,7 @@ describe("workspace-layout-store version 2 migration", () => {
       const persisted = JSON.parse((await AsyncStorage.getItem("workspace-layout-state")) ?? "{}");
       expect(persisted.version).toBe(2);
       expect(Object.keys(persisted.state).sort()).toEqual([
+        "closedTabsByWorkspace",
         "explorerPaneIdByWorkspace",
         "explorerSidebarWidthByWorkspace",
         "layoutByWorkspace",
@@ -1134,6 +1135,7 @@ describe("workspace-layout-store actions", () => {
   beforeEach(() => {
     workspaceLayoutIds.reset();
     workspaceLayoutStore.setState({
+      closedTabsByWorkspace: {},
       layoutByWorkspace: {},
       splitSizesByWorkspace: {},
       pinnedAgentIdsByWorkspace: {},
@@ -3178,6 +3180,7 @@ describe("workspace-layout-store actions", () => {
     const persisted = partialize(currentState);
 
     expect(persisted).toEqual({
+      closedTabsByWorkspace: {},
       layoutByWorkspace: { [workspaceKey]: layout },
       pinnedAgentIdsByWorkspace: {},
       splitSizesByWorkspace: currentState.splitSizesByWorkspace,
@@ -3412,6 +3415,7 @@ describe("workspace-layout-store actions", () => {
     const partialize = workspaceLayoutStore.persist.getOptions().partialize;
     expect(partialize).toBeTypeOf("function");
     expect(partialize?.(state)).toEqual({
+      closedTabsByWorkspace: {},
       pullRequestTabAutoOpenedByWorkspace: {},
       layoutByWorkspace: {},
       pinnedAgentIdsByWorkspace: {},
@@ -5242,5 +5246,97 @@ describe("pending workspace opens", () => {
     ).toEqual([{ kind: "agent", agentId: "b" }]);
     expect(store.getState().pinnedAgentIdsByWorkspace["server:beta"]).toEqual(new Set(["b"]));
     expect(store.getState().pendingOpenByWorkspace).toEqual({});
+  });
+});
+
+describe("reopen closed tabs", () => {
+  it("bounds persisted recovery history and purges it with the workspace", async () => {
+    let saved: string | null = null;
+    const storage = {
+      getItem: async () => saved,
+      setItem: async (_key: string, value: string) => {
+        saved = value;
+      },
+      removeItem: async () => {
+        saved = null;
+      },
+    };
+    const store = createWorkspaceLayoutStore(undefined, storage);
+    await store.persist.rehydrate();
+    const key = "host:persisted-undo";
+    for (let i = 0; i < 22; i++) {
+      const id = store.getState().openTab({
+        workspaceKey: key,
+        target: { kind: "agent", agentId: `agent-${i}` },
+        intent: "new",
+      })!;
+      store.getState().closeTab(key, id);
+    }
+    await vi.waitFor(() =>
+      expect(JSON.parse(saved!).state.closedTabsByWorkspace[key]).toHaveLength(20),
+    );
+    const restored = createWorkspaceLayoutStore(undefined, storage);
+    await restored.persist.rehydrate();
+    expect(restored.getState().closedTabsByWorkspace[key]).toHaveLength(20);
+    expect(restored.getState().closedTabsByWorkspace[key][0].target).toEqual({
+      kind: "agent",
+      agentId: "agent-2",
+    });
+    const id = restored.getState().reopenClosedTab(key)!;
+    expect(
+      restored
+        .getState()
+        .getWorkspaceTabs(key)
+        .find((tab) => tab.tabId === id)?.target,
+    ).toEqual({ kind: "agent", agentId: "agent-21" });
+    restored.getState().purgeWorkspace(key);
+    expect(restored.getState().closedTabsByWorkspace[key]).toBeUndefined();
+  });
+
+  it("does not restore destroyed resources or empty launchers", () => {
+    const store = createWorkspaceLayoutStore();
+    const key = "host:destroyed";
+    for (const target of [
+      { kind: "terminal", terminalId: "gone" },
+      { kind: "browser", browserId: "gone" },
+      { kind: "new_tab" },
+    ] as const) {
+      const id = store.getState().openTab({ workspaceKey: key, target, intent: "new" })!;
+      store.getState().closeTab(key, id);
+    }
+    expect(store.getState().reopenClosedTab(key)).toBeNull();
+  });
+
+  it("restores an agent identity, panel state and focus in last-closed order", () => {
+    const store = createWorkspaceLayoutStore();
+    const key = "host:undo";
+    const agent = store.getState().openTab({
+      workspaceKey: key,
+      target: { kind: "agent", agentId: "original" },
+      intent: "new",
+      state: { scroll: 42 },
+    })!;
+    const file = store
+      .getState()
+      .openTab({ workspaceKey: key, target: { kind: "file", path: "notes.md" }, intent: "new" })!;
+    store.getState().closeTab(key, agent);
+    store.getState().closeTab(key, file);
+    store.getState().reopenClosedTab(key);
+    expect(
+      store
+        .getState()
+        .getWorkspaceTabs(key)
+        .map((tab) => tab.target),
+    ).toContainEqual({ kind: "file", path: "notes.md" });
+    const restored = store.getState().reopenClosedTab(key)!;
+    expect(
+      store
+        .getState()
+        .getWorkspaceTabs(key)
+        .find((tab) => tab.tabId === restored),
+    ).toMatchObject({ target: { kind: "agent", agentId: "original" }, state: { scroll: 42 } });
+    expect(store.getState().pinnedAgentIdsByWorkspace[key].has("original")).toBe(true);
+    expect(store.getState().reopenClosedTab(key)).toBeNull();
+    expect(store.getState().reopenClosedTab("other:workspace")).toBeNull();
   });
 });

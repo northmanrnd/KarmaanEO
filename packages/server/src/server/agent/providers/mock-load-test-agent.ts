@@ -716,15 +716,30 @@ export class MockLoadTestAgentClient implements AgentClient {
   readonly provider: AgentProvider = MOCK_LOAD_TEST_PROVIDER_ID;
   readonly capabilities = CAPABILITIES;
 
+  // Emulate provider-owned transcripts across close/resume within one test daemon.
+  // This fixture does not claim disk persistence across daemon restarts.
+  private readonly histories = new Map<string, AgentStreamEvent[]>();
+
   constructor(private readonly logger?: Logger) {}
+
+  private historyFor(sessionId: string): AgentStreamEvent[] {
+    let history = this.histories.get(sessionId);
+    if (!history) {
+      history = [];
+      this.histories.set(sessionId, history);
+    }
+    return history;
+  }
 
   async createSession(
     config: AgentSessionConfig,
     _launchContext?: AgentLaunchContext,
   ): Promise<AgentSession> {
+    const sessionId = randomUUID();
     return new MockLoadTestAgentSession({
       config,
-      sessionId: randomUUID(),
+      sessionId,
+      history: this.historyFor(sessionId),
       logger: this.logger,
     });
   }
@@ -743,6 +758,7 @@ export class MockLoadTestAgentClient implements AgentClient {
         provider: MOCK_LOAD_TEST_PROVIDER_ID,
       },
       sessionId: handle.sessionId,
+      history: this.historyFor(handle.sessionId),
       logger: this.logger,
     });
   }
@@ -792,7 +808,7 @@ export class MockLoadTestAgentSession implements AgentSession {
   private readonly usageSessionKey = randomUUID();
 
   private readonly listeners = new Set<(event: AgentStreamEvent) => void>();
-  private readonly history: AgentStreamEvent[] = [];
+  private readonly history: AgentStreamEvent[];
   private readonly logger?: Logger;
   private activeTurn: ActiveTurn | null = null;
   private pendingPermissions = new Map<string, AgentPermissionRequest>();
@@ -806,7 +822,13 @@ export class MockLoadTestAgentSession implements AgentSession {
   private remainingPromptRejections: number;
   private remainingSteerFailures: number;
 
-  constructor(options: { config: AgentSessionConfig; sessionId: string; logger?: Logger }) {
+  constructor(options: {
+    config: AgentSessionConfig;
+    sessionId: string;
+    logger?: Logger;
+    history?: AgentStreamEvent[];
+  }) {
+    this.history = options.history ?? [];
     this.id = options.sessionId;
     this.logger = options.logger;
     this.modeId = options.config.modeId ?? MOCK_LOAD_TEST_MODE_ID;

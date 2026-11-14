@@ -2621,6 +2621,7 @@ export const ru: TranslationResources = {
         moveTabDown: "Переместить вкладку вниз",
         closePane: "Закрыть панель",
         newTerminal: "Новый терминал",
+        reopenTab: "Открыть закрытую вкладку",
         searchFiles: "Поиск файлов",
         toggleCommandCenter: "Переключить командный центр",
         showKeyboardShortcuts: "Показать сочетания клавиш",

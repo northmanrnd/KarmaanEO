@@ -2701,6 +2701,7 @@ export const en = {
         moveTabDown: "Move tab down",
         closePane: "Close pane",
         newTerminal: "New terminal",
+        reopenTab: "Reopen closed tab",
         searchFiles: "Search files",
         toggleCommandCenter: "Toggle command center",
         showKeyboardShortcuts: "Show keyboard shortcuts",

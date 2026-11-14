@@ -50,6 +50,33 @@ describe("MockLoadTestAgentClient", () => {
     });
   });
 
+  test("retains provider transcript when a session is closed and resumed", async () => {
+    vi.useFakeTimers();
+    const client = new MockLoadTestAgentClient();
+    const session = await client.createSession({
+      provider: "mock",
+      cwd: process.cwd(),
+      model: "e2e-fast-stream",
+    });
+    const result = session.run("Retain this native prompt");
+    await vi.runAllTimersAsync();
+    await result;
+    const original = [];
+    for await (const event of session.streamHistory()) original.push(event);
+    expect(
+      original.some((event) => event.type === "timeline" && event.item.type === "user_message"),
+    ).toBe(true);
+    const handle = session.describePersistence();
+    if (!handle) throw new Error("Expected mock persistence handle");
+    await session.close();
+    const restored = await client.resumeSession(handle);
+    const history = [];
+    for await (const event of restored.streamHistory()) history.push(event);
+    expect(restored.id).toBe(session.id);
+    expect(history.slice(0, original.length)).toEqual(original);
+    await restored.close();
+  });
+
   test("lists the command it handles without starting a turn", async () => {
     const client = new MockLoadTestAgentClient();
     const session = await client.createSession({ provider: "mock", cwd: process.cwd() });

@@ -2613,6 +2613,7 @@ export const ar: TranslationResources = {
         moveTabDown: "حرك علامة التبويب لأسفل",
         closePane: "إغلاق الجزء",
         newTerminal: "محطة جديدة",
+        reopenTab: "إعادة فتح علامة التبويب المغلقة",
         searchFiles: "البحث في الملفات",
         toggleCommandCenter: "تبديل مركز القيادة",
         showKeyboardShortcuts: "إظهار اختصارات لوحة المفاتيح",

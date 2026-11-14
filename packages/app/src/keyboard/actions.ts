@@ -47,6 +47,7 @@ export type KeyboardActionId =
   | "command-center.toggle"
   | "command-center.files"
   | "shortcuts.dialog.toggle"
+  | "workspace.tab.reopen"
   | "workspace.terminal.new"
   | "workspace.new"
   | "workspace.project.pick"

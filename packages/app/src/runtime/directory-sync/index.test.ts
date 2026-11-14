@@ -1,3 +1,6 @@
+import { AgentStoreProjection } from "./internal/agent-store";
+import { useDraftStore } from "@/stores/draft-store";
+import { buildDraftStoreKey } from "@/stores/draft-keys";
 import { DatabaseSync } from "node:sqlite";
 import { ReplicaCache } from "@/runtime/replica-cache";
 import {
@@ -1961,3 +1964,25 @@ it.each(["before", "during", "before-metadata", "damaged"] as const)(
     }
   },
 );
+
+it("retains the complete composer draft when an agent leaves the active directory", () => {
+  const serverId = "draft-recovery-host";
+  const agentId = "draft-recovery-agent";
+  const draftKey = buildDraftStoreKey({ serverId, agentId });
+  const draft = {
+    text: "Keep this unsent prompt",
+    attachments: [
+      {
+        kind: "workspace_file" as const,
+        path: "/repo/scope.zip",
+        selection: { kind: "whole_file" as const },
+      },
+    ],
+  };
+  useDraftStore.getState().saveDraftInput({ draftKey, draft });
+  const projection = new AgentStoreProjection(serverId);
+  projection.removeFromDirectory(agentId);
+  expect(useDraftStore.getState().getDraftInput(draftKey)).toEqual(draft);
+  projection.remove(agentId);
+  expect(useDraftStore.getState().getDraftInput(draftKey)).toBeUndefined();
+});
