@@ -1,3 +1,12 @@
+import { expectAgentIdle } from "../support/helpers/agent-stream";
+import { daemonWsRoutePattern } from "../support/helpers/daemon-port";
+import { seedMockAgentWorkspace, openAgentRoute } from "../support/helpers/mock-agent";
+import {
+  fillComposerDraft,
+  expectComposerDraft,
+  expectComposerVisible,
+  submitMessage,
+} from "../support/helpers/composer";
 import { randomUUID } from "node:crypto";
 import { expect } from "@playwright/test";
 import { test } from "../support/fixtures";
@@ -154,4 +163,92 @@ test.describe("Archive tab reconciliation", () => {
       timeout: 30_000,
     });
   });
+});
+
+test("reopens the complete agent with Command Shift T after close and reload", async ({ page }) => {
+  test.setTimeout(90_000);
+  const agent = await seedMockAgentWorkspace({
+    repoPrefix: "reopen-tab-",
+    title: "Restored original agent",
+  });
+  try {
+    page.on("dialog", (dialog) => dialog.accept());
+    let failNextRestore = true;
+    let directoryRequests = 0;
+    await page.routeWebSocket(daemonWsRoutePattern(), (ws) => {
+      const server = ws.connectToServer();
+      ws.onMessage((message) => {
+        const envelope = JSON.parse(String(message));
+        const request = envelope.type === "session" ? envelope.message : null;
+        if (request?.type === "fetch_agents_request") directoryRequests += 1;
+        if (
+          failNextRestore &&
+          request?.type === "refresh_agent_request" &&
+          request.agentId === agent.agentId
+        ) {
+          failNextRestore = false;
+          ws.send(
+            JSON.stringify({
+              type: "session",
+              message: {
+                type: "rpc_error",
+                payload: {
+                  requestId: request.requestId,
+                  requestType: request.type,
+                  error: "Cannot restore agent yet. Retry reopening the tab.",
+                  code: "agent_refresh_failed",
+                },
+              },
+            }),
+          );
+        } else {
+          server.send(message);
+        }
+      });
+      server.onMessage((message) => ws.send(message));
+    });
+    await openAgentRoute(page, agent);
+    await expectComposerVisible(page);
+    await submitMessage(page, "Retain this chat history.");
+    await agent.client.waitForFinish(agent.agentId, 30_000);
+    await expect(
+      page.getByTestId("user-message").filter({ hasText: "Retain this chat history." }),
+    ).toHaveAttribute("aria-busy", "false");
+    await expect(page.getByText("(end of synthetic stream)", { exact: true })).toBeVisible();
+    await expectAgentIdle(page);
+    await fillComposerDraft(page, "Retain this unsent draft.");
+    await page
+      .getByTestId(`workspace-tab-agent_${agent.agentId}`)
+      .filter({ visible: true })
+      .click({ button: "right" });
+    await page.getByTestId(`workspace-tab-context-agent_${agent.agentId}-close`).click();
+    await expectWorkspaceTabHidden(page, agent.agentId);
+    await expect.poll(() => fetchAgentArchivedAt(agent.client, agent.agentId)).not.toBeNull();
+    const requestsBeforeReload = directoryRequests;
+    await page.reload();
+    await expect.poll(() => directoryRequests).toBeGreaterThan(requestsBeforeReload);
+    await expect(
+      page.getByTestId("workspace-tabs-row").filter({ visible: true }).first(),
+    ).toBeVisible();
+    await page.keyboard.press("Meta+Shift+t");
+    await expect(page.getByTestId("reopen-tab-error")).toContainText("Cannot restore agent yet");
+    await expectWorkspaceTabHidden(page, agent.agentId);
+    await page.keyboard.press("Meta+Shift+t");
+    await expectComposerVisible(page);
+    await expectComposerDraft(page, "Retain this unsent draft.");
+    await expect(
+      page.getByTestId("user-message").filter({ hasText: "Retain this chat history." }),
+    ).toBeVisible();
+    await expectAgentTabActive(page, agent.agentId);
+    expect(await fetchAgentArchivedAt(agent.client, agent.agentId)).toBeNull();
+    await expect(
+      page.getByText("Restored original agent", { exact: true }).filter({ visible: true }).first(),
+    ).toBeVisible();
+    await expect(page.getByText("(end of synthetic stream)", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("reopen-tab-pending")).toHaveCount(0);
+    await expect(page.getByTestId("terminal-surface")).toHaveCount(0);
+    await page.screenshot({ path: test.info().outputPath("restored-agent.png") });
+  } finally {
+    await agent.cleanup();
+  }
 });

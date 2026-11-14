@@ -173,7 +173,7 @@ export const SHORTCUT_HELP_ROW_ORDER: Record<ShortcutSectionId, readonly string[
   "tabs-panes": [
     "workspace-tab-new",
     "workspace-tab-target-agent",
-    "workspace-terminal-new",
+    "workspace-tab-reopen",
     "workspace-tab-target-browser",
     "workspace-tab-target-changes",
     "workspace-tab-target-files",
@@ -232,7 +232,7 @@ const SHORTCUT_HELP_LABEL_KEYS: Record<string, string> = {
   "workspace-pane-move-tab-up": "settings.shortcuts.help.moveTabUp",
   "workspace-pane-move-tab-down": "settings.shortcuts.help.moveTabDown",
   "workspace-pane-close": "settings.shortcuts.help.closePane",
-  "workspace-terminal-new": "settings.shortcuts.help.newTerminal",
+  "workspace-tab-reopen": "settings.shortcuts.help.reopenTab",
   "search-files": "settings.shortcuts.help.searchFiles",
   "toggle-command-center": "settings.shortcuts.help.toggleCommandCenter",
   "show-shortcuts": "settings.shortcuts.help.showKeyboardShortcuts",
@@ -836,27 +836,28 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
       label: "Close pane",
     },
   },
-  // --- New terminal ---
+  // --- Reopen closed tab ---
+  // Keep the former terminal binding ids so saved keyboard overrides survive.
   {
     id: "workspace-terminal-new-cmd-shift-t-mac",
-    action: "workspace.terminal.new",
+    action: "workspace.tab.reopen",
     combo: "Cmd+Shift+T",
     when: { mac: true, commandCenter: false },
     help: {
-      id: "workspace-terminal-new",
+      id: "workspace-tab-reopen",
       section: "tabs-panes",
-      label: "New terminal",
+      label: "Reopen closed tab",
     },
   },
   {
     id: "workspace-terminal-new-ctrl-shift-t-non-mac",
-    action: "workspace.terminal.new",
+    action: "workspace.tab.reopen",
     combo: "Ctrl+Shift+T",
     when: { mac: false, commandCenter: false, terminal: false },
     help: {
-      id: "workspace-terminal-new",
+      id: "workspace-tab-reopen",
       section: "tabs-panes",
-      label: "New terminal",
+      label: "Reopen closed tab",
     },
   },
 

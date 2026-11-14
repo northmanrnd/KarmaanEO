@@ -93,7 +93,7 @@ describe("buildBrowserKeyboardPolicy", () => {
       bindings,
     });
 
-    expect(result.match?.action).toBe("workspace.terminal.new");
+    expect(result.match?.action).toBe("workspace.tab.reopen");
   });
 
   it("rejects an entire chord when a continuation cannot cross the browser boundary", () => {

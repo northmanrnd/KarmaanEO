@@ -136,6 +136,12 @@ interface HelpSectionCase {
 describe("keyboard-shortcuts", () => {
   const matchingCases: MatchingShortcutCase[] = [
     {
+      name: "matches Command Shift T to reopen the previous tab",
+      event: { key: "T", code: "KeyT", metaKey: true, shiftKey: true },
+      context: { isMac: true, isDesktop: true },
+      action: "workspace.tab.reopen",
+    },
+    {
       name: "matches Cmd+O to open project",
       event: { key: "o", code: "KeyO", metaKey: true },
       context: { isMac: true },
@@ -611,7 +617,7 @@ describe("keyboard-shortcuts", () => {
       bindings,
     });
 
-    expect(secondResult.match?.action).toBe("workspace.terminal.new");
+    expect(secondResult.match?.action).toBe("workspace.tab.reopen");
     expect(secondResult.match?.payload).toBeNull();
     expect(secondResult.match?.preventDefault).toBe(true);
     expect(secondResult.match?.stopPropagation).toBe(true);
@@ -1135,7 +1141,7 @@ describe("unassigned shortcuts", () => {
         bindings,
       });
 
-      expect(result.match?.action).toBe("workspace.terminal.new");
+      expect(result.match?.action).toBe("workspace.tab.reopen");
     });
 
     it("restores the default when the override is removed", () => {

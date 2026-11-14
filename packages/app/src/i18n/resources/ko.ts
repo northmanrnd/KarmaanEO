@@ -2589,6 +2589,7 @@ export const ko: TranslationResources = {
         moveTabDown: "탭을 아래로 이동",
         closePane: "창 닫기",
         newTerminal: "새 터미널",
+        reopenTab: "닫은 탭 다시 열기",
         searchFiles: "파일 검색",
         toggleCommandCenter: "명령 센터 토글",
         showKeyboardShortcuts: "키보드 단축키 표시",

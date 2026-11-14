@@ -1939,6 +1939,9 @@ function WorkspaceScreenContent({
     ],
   );
 
+  const pendingAgentArchives = useRef(new Map<string, Promise<unknown>>());
+  const reopeningTab = useRef(false);
+
   const handleCloseAgentTab = useCallback(
     async (input: { tabId: string; agentId: string }) => {
       const { tabId, agentId } = input;
@@ -1999,7 +2002,13 @@ function WorkspaceScreenContent({
         }
 
         // Errors (e.g. timeout) are handled by the mutation's onSettled callback
-        void archiveAgent({ serverId: normalizedServerId, agentId }).catch(() => {});
+        const pending = archiveAgent({ serverId: normalizedServerId, agentId }).catch(() => {});
+        pendingAgentArchives.current.set(agentId, pending);
+        try {
+          await pending;
+        } finally {
+          pendingAgentArchives.current.delete(agentId);
+        }
       });
     },
     [
@@ -2523,11 +2532,52 @@ function WorkspaceScreenContent({
     [activeTabId, handleCloseOtherTabs, handleCloseTabsToLeft, handleCloseTabsToRight],
   );
 
+  const handleReopenClosedTab = useCallback(async () => {
+    if (!persistenceKey || reopeningTab.current) return;
+    const tab = useWorkspaceLayoutStore.getState().closedTabsByWorkspace[persistenceKey]?.at(-1);
+    if (!tab) return;
+    reopeningTab.current = true;
+    const dismissPending = toast.show(t("common.loading"), {
+      durationMs: null,
+      testID: "reopen-tab-pending",
+    });
+    try {
+      if (tab.target.kind === "agent") {
+        const agentId = tab.target.agentId;
+        await pendingAgentArchives.current.get(agentId);
+        const session = useSessionStore.getState().sessions[normalizedServerId];
+        if (!session?.client) throw new Error(t("common.errors.daemonClientUnavailable"));
+        const snapshot = await session.client.fetchAgent(agentId);
+        if (!snapshot) throw new Error(`Agent not found: ${agentId}`);
+        if (snapshot.agent.archivedAt) {
+          await session.client.refreshAgent(agentId);
+        }
+      }
+      // A different tab may have closed while unarchiving. Keep the requested entry until retry.
+      const store = useWorkspaceLayoutStore.getState();
+      if (store.closedTabsByWorkspace[persistenceKey]?.at(-1) === tab) {
+        store.reopenClosedTab(persistenceKey);
+      }
+    } catch (error) {
+      toast.show(error instanceof Error ? error.message : String(error), {
+        variant: "error",
+        durationMs: null,
+        testID: "reopen-tab-error",
+      });
+    } finally {
+      dismissPending();
+      reopeningTab.current = false;
+    }
+  }, [normalizedServerId, persistenceKey, t, toast]);
+
   const handleWorkspaceTabAction = useCallback(
     (action: KeyboardActionDefinition): boolean => {
       switch (action.id) {
         case "workspace.agent.new":
           handleCreateDraftTab();
+          return true;
+        case "workspace.tab.reopen":
+          void handleReopenClosedTab();
           return true;
         case "workspace.terminal.new":
           handleCreateTerminal();
@@ -2573,6 +2623,7 @@ function WorkspaceScreenContent({
       handleCreateBrowserTab,
       handleCreateNewTab,
       handleCreateTerminal,
+      handleReopenClosedTab,
       focusedPaneTabState.pane?.id,
       navigateToTabId,
       tabs,
@@ -2744,6 +2795,7 @@ function WorkspaceScreenContent({
       "workspace.tab.navigate-index",
       "workspace.tab.navigate-relative",
       "workspace.terminal.new",
+      "workspace.tab.reopen",
       "workspace.browser.new",
       "workspace.tab.menu.open",
     ] as const,
