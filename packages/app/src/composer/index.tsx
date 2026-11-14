@@ -1,3 +1,4 @@
+import { RestoredAttachmentPill } from "@/components/restored-attachment-pill";
 import { selectAgentIsCompacting } from "@/stores/session-store";
 import { getDesktopHost } from "@/desktop/host";
 import { useIsLocalDaemon } from "@/hooks/use-is-local-daemon";
@@ -812,38 +813,6 @@ function GithubAttachmentPill({
         title={item.title}
         subtitle={`${subtitleKind} ${numberPrefix}${item.number}`}
       />
-    </AttachmentPill>
-  );
-}
-
-function RestoredAttachmentPill({
-  attachment,
-  index,
-  disabled,
-  onRemove,
-  removeLabel,
-}: {
-  attachment: Extract<ComposerAttachment, { kind: "restored_attachment" }>;
-  index: number;
-  disabled: boolean;
-  onRemove: (index: number) => void;
-  removeLabel: string;
-}) {
-  const payload = attachment.attachment;
-  let title = "Attachment";
-  if ("title" in payload && payload.title) title = payload.title;
-  else if ("fileName" in payload) title = payload.fileName;
-  const remove = useCallback(() => onRemove(index), [onRemove, index]);
-  return (
-    <AttachmentPill
-      testID="composer-restored-attachment-pill"
-      onOpen={noopCallback}
-      onRemove={remove}
-      openAccessibilityLabel={title}
-      removeAccessibilityLabel={removeLabel}
-      disabled={disabled}
-    >
-      <AttachmentLabel icon={filePillIcon} title={title} subtitle="From previous message" />
     </AttachmentPill>
   );
 }

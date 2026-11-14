@@ -774,6 +774,7 @@ function normalizeListCommandsOptions(
   return { agentId: input, ...legacyOptions };
 }
 export interface AgentForkContextOptions {
+  storedHistoryOnly?: boolean;
   boundaryCursor?: FetchAgentTimelineCursor;
   boundaryMessageId?: string;
   requestId?: string;
@@ -3851,6 +3852,7 @@ export class DaemonClient {
     const resolvedRequestId = this.createRequestId(options.requestId);
     const message = SessionInboundMessageSchema.parse({
       type: "agent.fork_context.request",
+      storedHistoryOnly: options.storedHistoryOnly,
       agentId,
       requestId: resolvedRequestId,
       ...(options.boundaryCursor ? { boundaryCursor: options.boundaryCursor } : {}),

@@ -21,6 +21,18 @@ export const en = {
     position: "{{current}} of {{total}}",
     total: "{{total}} matches",
   },
+  continuations: {
+    continue: "Continue with another agent",
+    mark: "Mark as continuation of…",
+    chooseSource:
+      "Choose the earlier agent in this workspace. This links conversations without changing either history.",
+    from: "Continues from → {{title}}",
+    to: "Continued in → {{title}}",
+    unlink: "Remove link",
+    noCandidates: "No other agents in this workspace.",
+    draftNotice:
+      "Continuation of {{sourceId}}. Choose a provider and model, then review and edit the handoff before sending. Attached history includes locally retained messages and tool summaries and may be shortened. Only available attachments can be carried over; check them and reattach missing files. The original agent remains unchanged.",
+  },
   common: {
     bottomSheetBackdrop: "Bottom sheet backdrop",
     back: "Back",

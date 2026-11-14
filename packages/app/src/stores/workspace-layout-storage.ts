@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { SplitNode, WorkspaceLayout } from "./workspace-layout-actions";
 
 const WorkspaceDraftTabSetupStorageSchema = z.strictObject({
+  continuedFromAgentId: z.string().optional(),
   provider: z.string(),
   cwd: z.string(),
   modeId: z.string().nullable(),

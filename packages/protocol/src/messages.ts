@@ -2015,6 +2015,7 @@ export const SetAgentTimelineSubscriptionRequestMessageSchema = z.object({
 });
 
 export const AgentForkContextRequestMessageSchema = z.object({
+  storedHistoryOnly: z.boolean().optional(),
   type: z.literal("agent.fork_context.request"),
   agentId: z.string(),
   boundaryCursor: AgentTimelineCursorSchema.optional(),
@@ -3824,6 +3825,7 @@ export const ServerInfoStatusPayloadSchema = z
         terminalsSurviveRestart: z.boolean().optional(),
         // COMPAT(agentForkContext): added in v0.1.102, remove gate after 2026-12-28.
         agentForkContext: z.boolean().optional(),
+        agentContinuations: z.boolean().optional(),
         // COMPAT(agentForkContextCursor): added in v0.1.108, remove gate after 2027-01-14.
         agentForkContextCursor: z.boolean().optional(),
         // COMPAT(providerSubagents): added in v0.1.107, remove gate after 2027-01-12.
