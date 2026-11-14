@@ -10,6 +10,7 @@ export interface AgentInputSubmitActionInput<TAttachment> {
   submitBehavior?: "clear" | "preserve-and-lock";
   forceSend?: boolean;
   isAgentRunning: boolean;
+  isCompacting?: boolean;
   canSubmit: boolean;
   queueMessage: (input: { message: string; attachments: TAttachment[] }) => void;
   submitMessage: (input: { message: string; attachments: TAttachment[] }) => Promise<void>;
@@ -42,7 +43,7 @@ export async function submitAgentInput<TAttachment>(
     return "noop";
   }
 
-  if (input.isAgentRunning && !input.forceSend) {
+  if (input.isCompacting || (input.isAgentRunning && !input.forceSend)) {
     input.queueMessage({ message: trimmedMessage, attachments });
     if (shouldClearOnSubmit) {
       input.setUserInput("");

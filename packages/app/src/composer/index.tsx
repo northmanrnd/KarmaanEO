@@ -1,3 +1,4 @@
+import { selectAgentIsCompacting } from "@/stores/session-store";
 import { getDesktopHost } from "@/desktop/host";
 import { useIsLocalDaemon } from "@/hooks/use-is-local-daemon";
 import {
@@ -1606,6 +1607,9 @@ function ComposerContentImpl({
   const isCancellingAgent = useSessionStore(
     (state) => selectAgentTurnPresentation(state.sessions[serverId], agentId).isCancelling,
   );
+  const isCompacting = useSessionStore((state) =>
+    selectAgentIsCompacting(state.sessions[serverId], agentId),
+  );
   const isAgentRunning = hasActiveTurn;
   // Queueing behind a permission prompt would strand the message: the turn is
   // parked until the request is answered.
@@ -1669,6 +1673,7 @@ function ComposerContentImpl({
         allowEmptySubmit,
         forceSend,
         submitBehavior,
+        isCompacting,
         isAgentRunning,
         // Parent-managed submits are still valid submit paths even when the
         // transport is disconnected, because the parent decides the failure mode.
@@ -1705,6 +1710,7 @@ function ComposerContentImpl({
       clearDraft,
       completeSubmit,
       hasExternalContent,
+      isCompacting,
       isAgentRunning,
       queueMessage,
       setSelectedAttachments,
@@ -1963,6 +1969,7 @@ function ComposerContentImpl({
   const handleSendQueuedNow = useCallback(
     async (id: string) => {
       if (!sendAgentMessageRef.current && !onSubmitMessageRef.current) return;
+      if (selectAgentIsCompacting(useSessionStore.getState().sessions[serverId], agentId)) return;
       // Reuse the regular send path; server-side send atomically interrupts any active run.
       const result = await sendQueuedComposerMessageNow({
         agentId,
@@ -1976,7 +1983,7 @@ function ComposerContentImpl({
         setSendError(result.errorMessage);
       }
     },
-    [agentId, queueWriter, submitMessage, t],
+    [agentId, queueWriter, submitMessage, t, serverId],
   );
 
   const handleQueue = useCallback(

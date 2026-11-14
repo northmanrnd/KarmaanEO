@@ -3216,6 +3216,58 @@ describe("HostRuntimeStore", () => {
     useSessionStore.getState().clearSession(host.serverId);
   });
 
+  it("retains queued text and attachments until compaction completes", async () => {
+    const host = makeHost({ serverId: "compaction_queue" });
+    const fakeClient = new FakeDaemonClient();
+    const store = new HostRuntimeStore({
+      deps: {
+        createClient: () => fakeClient as unknown as DaemonClient,
+        connectToDaemon: async () => ({
+          client: fakeClient as unknown as DaemonClient,
+          serverId: host.serverId,
+          hostname: null,
+        }),
+        getClientId: async () => "compaction_queue",
+      },
+    });
+    const sessionStore = useSessionStore.getState();
+    sessionStore.initializeSession(host.serverId, fakeClient as unknown as DaemonClient, 1);
+    const queued = [
+      {
+        id: "queued",
+        text: "after compact",
+        attachments: [
+          {
+            kind: "workspace_file" as const,
+            path: "scope.md",
+            selection: { kind: "whole_file" as const },
+          },
+        ],
+      },
+    ];
+    sessionStore.setQueuedMessages(host.serverId, new Map([["agent", queued]]));
+    const marker = {
+      kind: "compaction" as const,
+      id: "compact",
+      status: "loading" as const,
+      timestamp: new Date(),
+    };
+    sessionStore.setAgentStreamTail(host.serverId, new Map([["agent", [marker]]]));
+    store.drainQueuedAgentMessage(host.serverId, "agent");
+    expect(fakeClient.sentAgentMessages).toEqual([]);
+    expect(useSessionStore.getState().sessions[host.serverId]?.queuedMessages.get("agent")).toEqual(
+      queued,
+    );
+    sessionStore.setAgentStreamTail(
+      host.serverId,
+      new Map([["agent", [{ ...marker, status: "completed" }]]]),
+    );
+    store.drainQueuedAgentMessage(host.serverId, "agent");
+    await fakeClient.waitForSentMessages(1);
+    expect(fakeClient.sentAgentMessages[0]?.[1]).toBe("after compact");
+    useSessionStore.getState().clearSession(host.serverId);
+  });
+
   it("restores an automatically drained message when sending fails", async () => {
     const host = makeHost({ serverId: "srv_failed_queue_drain" });
     const fakeClient = new FakeDaemonClient();

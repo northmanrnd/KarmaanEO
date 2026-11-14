@@ -16,6 +16,43 @@ function createDeferredPromise<T>() {
 }
 
 describe("submitAgentInput", () => {
+  it("queues forced sends during compaction without losing text or attachments", async () => {
+    const attachments = [{ id: "drawing" }];
+    const queued: { message: string; attachments: typeof attachments }[] = [];
+    let submitted = false;
+    let draft = "after compact";
+    let selected = attachments;
+    const result = await submitAgentInput({
+      message: draft,
+      attachments,
+      isAgentRunning: false,
+      isCompacting: true,
+      forceSend: true,
+      canSubmit: true,
+      queueMessage: (message) => {
+        queued.push(message);
+      },
+      submitMessage: async () => {
+        submitted = true;
+      },
+      clearDraft: () => {
+        throw new Error("Must not discard a queued draft");
+      },
+      setUserInput: (value) => {
+        draft = value;
+      },
+      setAttachments: (value) => {
+        selected = value;
+      },
+      setSendError: () => {},
+      setIsProcessing: () => {},
+    });
+    expect(result).toBe("queued");
+    expect(submitted).toBe(false);
+    expect(queued).toEqual([{ message: "after compact", attachments }]);
+    expect(draft).toBe("");
+    expect(selected).toEqual([]);
+  });
   it("clears the composer before an in-flight submit resolves", async () => {
     const deferred = createDeferredPromise<void>();
     const queueMessage = vi.fn();
