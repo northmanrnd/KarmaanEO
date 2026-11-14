@@ -1361,6 +1361,15 @@ export class AgentManager {
     return result;
   }
 
+  private withContinuationLabels<T>(
+    labels: AgentLabelPatch | undefined,
+    mutation: () => Promise<T>,
+  ): Promise<T> {
+    return labels && Object.hasOwn(labels, CONTINUED_FROM_AGENT_ID_LABEL)
+      ? this.withContinuationGraph(mutation)
+      : mutation();
+  }
+
   private async validateContinuation(
     agentId: string,
     workspaceId: string | undefined,
@@ -2356,7 +2365,7 @@ export class AgentManager {
   }
 
   async setLabels(agentId: string, labels: Record<string, string>): Promise<void> {
-    await this.withContinuationGraph(() =>
+    await this.withContinuationLabels(labels, () =>
       this.runLifecycleMutation(agentId, async () => {
         const agent = this.requireAgent(agentId);
         if (Object.hasOwn(labels, CONTINUED_FROM_AGENT_ID_LABEL)) {
@@ -2680,7 +2689,7 @@ export class AgentManager {
       labels?: Record<string, string>;
     },
   ): Promise<void> {
-    await this.withContinuationGraph(() =>
+    await this.withContinuationLabels(updates.labels, () =>
       this.runLifecycleMutation(agentId, async () => {
         if (updates.labels && Object.hasOwn(updates.labels, CONTINUED_FROM_AGENT_ID_LABEL)) {
           const record = await this.requireRegistry().get(agentId);
