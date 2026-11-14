@@ -1,3 +1,5 @@
+import { validateRestoredImages } from "@/attachments/restored-message";
+import type { UserComposerAttachment } from "@/attachments/types";
 import { planTimelineTailFetch } from "@/timeline/timeline-sync-plan";
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
@@ -20,6 +22,7 @@ interface UseRewindAgentMutationInput {
 interface RewindAgentInput {
   mode: RewindMode;
   rewoundText: string;
+  attachments?: UserComposerAttachment[];
 }
 
 export function useRewindAgentMutation(input: UseRewindAgentMutationInput): {
@@ -30,10 +33,11 @@ export function useRewindAgentMutation(input: UseRewindAgentMutationInput): {
   const { t } = useTranslation();
   const composerRestore = useRewindComposerRestore();
   const { isPending, mutateAsync } = useMutation({
-    mutationFn: async ({ mode }: RewindAgentInput) => {
+    mutationFn: async ({ mode, attachments }: RewindAgentInput) => {
       if (!input.client || !input.agentId || !input.messageId) {
         throw new Error(t("common.errors.daemonClientUnavailable"));
       }
+      if (mode !== "files") await validateRestoredImages(attachments ?? []);
       await input.client.rewindAgent(input.agentId, input.messageId, mode);
       if (mode !== "files") {
         const cursor = input.serverId
@@ -52,7 +56,7 @@ export function useRewindAgentMutation(input: UseRewindAgentMutationInput): {
       if (!shouldRestoreComposerForRewindMode(variables.mode)) {
         return;
       }
-      composerRestore?.completeRewind(variables.rewoundText);
+      composerRestore?.completeRewind(variables.rewoundText, variables.attachments ?? []);
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : t("rewind.errors.failed"));

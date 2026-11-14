@@ -429,6 +429,18 @@ function renderComposerAttachmentPill(args: RenderComposerAttachmentPillArgs): R
       />
     );
   }
+  if (attachment.kind === "restored_attachment") {
+    return (
+      <RestoredAttachmentPill
+        key={`restored:${index}`}
+        attachment={attachment}
+        index={index}
+        disabled={disabled}
+        onRemove={onRemove}
+        removeLabel={labels.removeFile}
+      />
+    );
+  }
   if (attachment.kind === "file") {
     return (
       <FileAttachmentPill
@@ -800,6 +812,38 @@ function GithubAttachmentPill({
         title={item.title}
         subtitle={`${subtitleKind} ${numberPrefix}${item.number}`}
       />
+    </AttachmentPill>
+  );
+}
+
+function RestoredAttachmentPill({
+  attachment,
+  index,
+  disabled,
+  onRemove,
+  removeLabel,
+}: {
+  attachment: Extract<ComposerAttachment, { kind: "restored_attachment" }>;
+  index: number;
+  disabled: boolean;
+  onRemove: (index: number) => void;
+  removeLabel: string;
+}) {
+  const payload = attachment.attachment;
+  let title = "Attachment";
+  if ("title" in payload && payload.title) title = payload.title;
+  else if ("fileName" in payload) title = payload.fileName;
+  const remove = useCallback(() => onRemove(index), [onRemove, index]);
+  return (
+    <AttachmentPill
+      testID="composer-restored-attachment-pill"
+      onOpen={noopCallback}
+      onRemove={remove}
+      openAccessibilityLabel={title}
+      removeAccessibilityLabel={removeLabel}
+      disabled={disabled}
+    >
+      <AttachmentLabel icon={filePillIcon} title={title} subtitle="From previous message" />
     </AttachmentPill>
   );
 }

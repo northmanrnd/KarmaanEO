@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { buildAbsoluteExplorerPath } from "./explorer-paths";
 
 describe("buildAbsoluteExplorerPath", () => {
+  it("resolves file tabs rooted at the filesystem root", () => {
+    expect(buildAbsoluteExplorerPath({ workspaceRoot: "/", entryPath: "tmp/file.txt" })).toBe(
+      "/tmp/file.txt",
+    );
+  });
   it("builds a POSIX absolute path from a relative explorer path", () => {
     expect(
       buildAbsoluteExplorerPath({

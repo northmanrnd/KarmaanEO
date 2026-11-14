@@ -1,3 +1,4 @@
+import { dropFileOnComposer } from "../support/helpers/composer";
 import { expect, test as base } from "../support/fixtures";
 import { awaitAssistantMessage } from "../support/helpers/agent-stream";
 import {
@@ -37,6 +38,32 @@ const test = base.extend<{
 
 test.describe("Assistant fork menu", () => {
   test.describe.configure({ timeout: 180_000 });
+
+  test("branch carries a submitted file into the new editable draft", async ({
+    page,
+    seedForkWorkspace,
+  }) => {
+    const session = await seedForkWorkspace({
+      repoPrefix: "fork-attachments-",
+      title: "Fork attachment",
+      model: "ten-second-stream",
+    });
+    await openAgentRoute(page, session);
+    await expectComposerVisible(page);
+    await dropFileOnComposer(page, {
+      name: "scope.json",
+      mimeType: "application/json",
+      buffer: Buffer.from('{"scope":"paint"}'),
+    });
+    await expect(page.getByTestId("composer-file-attachment-pill")).toBeVisible();
+    await submitMessage(page, "Read this scope file.");
+    await session.client.waitForFinish(session.agentId, 30_000);
+    await expect(page.getByText("(end of synthetic stream)", { exact: true }).last()).toBeVisible();
+    await page.reload();
+    await forkMostRecentAssistantTurnToNewTab(page);
+    await expectChatHistoryAttachment(page);
+    await expect(page.getByTestId("composer-restored-attachment-pill")).toContainText("scope.json");
+  });
 
   test("forks a failed assistant turn that has no provider message id", async ({
     page,

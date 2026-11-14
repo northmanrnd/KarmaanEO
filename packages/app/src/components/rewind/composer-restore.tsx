@@ -1,14 +1,18 @@
+import type { UserComposerAttachment } from "@/attachments/types";
 import type { ComposerTextSource } from "@/composer/text-source";
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 
 interface RewindComposerRestoreContextValue {
-  completeRewind: (text: string) => void;
+  completeRewind: (text: string, attachments: UserComposerAttachment[]) => void;
 }
 
 interface RewindComposerRestoreProviderProps {
   textSource: ComposerTextSource;
   setText: (text: string) => void;
   onRewindComplete: () => void;
+  setAttachments: (
+    updater: (current: UserComposerAttachment[]) => UserComposerAttachment[],
+  ) => void;
   children: ReactNode;
 }
 
@@ -28,10 +32,11 @@ export function RewindComposerRestoreProvider({
   textSource,
   setText,
   onRewindComplete,
+  setAttachments,
   children,
 }: RewindComposerRestoreProviderProps) {
   const completeRewind = useCallback(
-    (rewoundText: string) => {
+    (rewoundText: string, attachments: UserComposerAttachment[]) => {
       const currentText = textSource.getSnapshot();
       const nextText = restoreComposerTextIfEmpty({
         currentText: currentText,
@@ -40,9 +45,10 @@ export function RewindComposerRestoreProvider({
       if (nextText !== currentText) {
         setText(nextText);
       }
+      setAttachments((current) => [...current, ...attachments]);
       onRewindComplete();
     },
-    [onRewindComplete, setText, textSource],
+    [onRewindComplete, setText, textSource, setAttachments],
   );
 
   const value = useMemo(() => ({ completeRewind }), [completeRewind]);

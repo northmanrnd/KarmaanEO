@@ -71,6 +71,21 @@ describe("loadAppSettingsFromStorage", () => {
     },
   );
 
+  it("persists both link browser choices and defaults invalid preferences to the OS browser", async () => {
+    for (const linkBrowser of ["in-app", "external"] as const) {
+      const deps = makeDeps();
+      const queryClient = new QueryClient();
+      await saveAppSettings({ queryClient, deps, updates: { linkBrowser } });
+      expect((await loadAppSettingsFromStorage(deps)).linkBrowser).toBe(linkBrowser);
+    }
+    const deps = makeDeps({
+      storage: createInMemoryKeyValueStorage({
+        [APP_SETTINGS_KEY]: JSON.stringify({ linkBrowser: "invalid" }),
+      }),
+    });
+    expect((await loadAppSettingsFromStorage(deps)).linkBrowser).toBe("external");
+  });
+
   it("preserves a persisted steer send behavior", async () => {
     const deps = makeDeps({
       storage: createInMemoryKeyValueStorage({

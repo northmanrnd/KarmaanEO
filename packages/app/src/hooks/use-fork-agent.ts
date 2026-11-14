@@ -1,3 +1,6 @@
+import { collectForkAttachments, validateRestoredImages } from "@/attachments/restored-message";
+import { useDraftStore } from "@/stores/draft-store";
+import { buildDraftStoreKey } from "@/stores/draft-keys";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import type {
@@ -152,9 +155,23 @@ export function useForkAgent(
           payload,
           missingAttachmentMessage: t("message.actions.forkFailed"),
         });
+        const session = useSessionStore.getState().sessions[serverId];
+        const attachments = collectForkAttachments(
+          [
+            ...(session?.agentStreamHead.get(agentId) ?? []),
+            ...(session?.agentStreamTail.get(agentId) ?? []),
+          ],
+          payload.boundaryCursor,
+          agent.cwd,
+        );
+        await validateRestoredImages(attachments);
         useWorkspaceAttachmentsStore.getState().setWorkspaceAttachments({
           scopeKey: buildDraftWorkspaceAttachmentScopeKey(draftId),
           attachments: [attachment],
+        });
+        useDraftStore.getState().saveDraftInput({
+          draftKey: buildDraftStoreKey({ serverId, agentId: "", draftId }),
+          draft: { text: "", attachments },
         });
         return draftId;
       };

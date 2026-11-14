@@ -306,6 +306,43 @@ async function expectLegacyWorkspaceRefresh({
 }
 
 describe("ReplicaCache", () => {
+  it("retains original image metadata and structured attachments across reopening chat history", async () => {
+    const storage = new MemoryStorage();
+    const writer = createCache(storage);
+    const item: StreamItem = {
+      kind: "user_message",
+      id: "attached",
+      messageId: "provider-message",
+      clientMessageId: "client-message",
+      text: "Read this",
+      timestamp: new Date(1),
+      timelineCursor: { epoch: "epoch-1", seq: 1 },
+      images: [
+        {
+          id: "image-1",
+          storageKey: "image-1",
+          storageType: "web-indexeddb",
+          mimeType: "image/png",
+          createdAt: 1,
+        },
+      ],
+      attachments: [
+        {
+          type: "uploaded_file",
+          id: "upload_1",
+          path: "/host/plan.pdf",
+          fileName: "plan.pdf",
+          mimeType: "application/pdf",
+          size: 10,
+        },
+      ],
+    };
+    writer.commitTimeline(SERVER_ID, "agent-1", { ...timeline(), items: [item] });
+    await writer.flush();
+    const restored = await createCache(storage).readTimeline(SERVER_ID, "agent-1");
+    expect(restored?.items).toEqual([item]);
+  });
+
   it("persists the complete newest turn beyond the cache item target", async () => {
     const storage = new MemoryStorage();
     const writer = createCache(storage);

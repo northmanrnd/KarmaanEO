@@ -83,6 +83,7 @@ export interface AppSettings {
   language: AppLanguage;
   sendBehavior: SendBehavior;
   serviceUrlBehavior: ServiceUrlBehavior;
+  linkBrowser: "in-app" | "external";
   terminalScrollbackLines: number;
   uiFontFamily: string; // "" = platform default UI stack
   monoFontFamily: string; // "" = platform default mono stack
@@ -144,6 +145,7 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   language: "system",
   sendBehavior: "steer",
   serviceUrlBehavior: "ask",
+  linkBrowser: "external",
   terminalScrollbackLines: DEFAULT_TERMINAL_SCROLLBACK_LINES,
   uiFontFamily: "",
   monoFontFamily: "",
@@ -224,6 +226,7 @@ const StoredAppSettingsSchema = z
       .catch("system"),
     sendBehavior: z.enum(["interrupt", "steer", "queue"]).catch("steer"),
     serviceUrlBehavior: z.enum(["ask", "in-app", "external"]).catch("ask"),
+    linkBrowser: z.enum(["in-app", "external"]).catch("external"),
     terminalScrollbackLines: clampedNumber(
       MIN_TERMINAL_SCROLLBACK_LINES,
       MAX_TERMINAL_SCROLLBACK_LINES,

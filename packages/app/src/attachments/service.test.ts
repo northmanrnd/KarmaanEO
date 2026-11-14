@@ -89,6 +89,18 @@ describe("attachment service", () => {
     ]);
   });
 
+  it("rejects a missing image instead of silently sending a message without it", async () => {
+    const store: AttachmentStore = {
+      ...createRecordingStore(),
+      async encodeBase64() {
+        throw new Error("missing image");
+      },
+    };
+    __setAttachmentStoreForTests(store);
+    const image = createAttachment({ id: "deleted-image", mimeType: "image/png" });
+    await expect(encodeAttachmentsForSend([image])).rejects.toThrow("deleted-image");
+  });
+
   it("keeps provider send output byte-compatible", async () => {
     const store = createRecordingStore();
     __setAttachmentStoreForTests(store);

@@ -1,3 +1,4 @@
+import { buildAbsoluteExplorerPath } from "@/utils/explorer-paths";
 import { planTimelineTailFetch } from "@/timeline/timeline-sync-plan";
 import { useHostFeature } from "@/runtime/host-features";
 import {
@@ -2112,13 +2113,15 @@ function WorkspaceScreenContent({
     async (path: string) => {
       if (!path) return;
       try {
-        await Clipboard.setStringAsync(path);
+        await Clipboard.setStringAsync(
+          buildAbsoluteExplorerPath({ workspaceRoot: workspaceDirectory ?? "", entryPath: path }),
+        );
         toast.copied(t("workspace.tabs.toasts.filePathCopiedLabel"));
       } catch {
         toast.error(t("workspace.tabs.toasts.copyFailed"));
       }
     },
-    [toast, t],
+    [toast, t, workspaceDirectory],
   );
 
   const handleCopyResumeCommand = useCallback(
