@@ -1,3 +1,4 @@
+import { createTimelineReplica, createViewedTimelineOwner } from "@/timeline/viewed-timeline-sync";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AppStateStatus } from "react-native";
 import {
@@ -3216,57 +3217,127 @@ describe("HostRuntimeStore", () => {
     useSessionStore.getState().clearSession(host.serverId);
   });
 
-  it("retains queued text and attachments until compaction completes", async () => {
-    const host = makeHost({ serverId: "compaction_queue" });
-    const fakeClient = new FakeDaemonClient();
-    const store = new HostRuntimeStore({
-      deps: {
-        createClient: () => fakeClient as unknown as DaemonClient,
-        connectToDaemon: async () => ({
-          client: fakeClient as unknown as DaemonClient,
+  it.each([false, true])(
+    "automatically drains after compaction with an active turn: %s",
+    async (running) => {
+      const host = makeHost({ serverId: "compaction_queue" });
+      const fakeClient = new FakeDaemonClient();
+      const store = new HostRuntimeStore({
+        deps: {
+          createClient: () => fakeClient as unknown as DaemonClient,
+          connectToDaemon: async () => ({
+            client: fakeClient as unknown as DaemonClient,
+            serverId: host.serverId,
+            hostname: null,
+          }),
+          getClientId: async () => "compaction_queue",
+        },
+      });
+      const sessionStore = useSessionStore.getState();
+      sessionStore.initializeSession(host.serverId, fakeClient as unknown as DaemonClient, 1);
+      const agent = replicaAgent(
+        makeFetchAgentsEntry({ id: "agent", cwd: "/tmp", updatedAt: new Date().toISOString() })
+          .agent,
+        host.serverId,
+      );
+      sessionStore.setAgents(
+        host.serverId,
+        new Map([
+          [
+            "agent",
+            {
+              ...agent,
+              turn: running
+                ? {
+                    phase: "open",
+                    turnId: "turn-1",
+                    startedAt: new Date(),
+                    cancellationRequestId: null,
+                  }
+                : agent.turn,
+            },
+          ],
+        ]),
+      );
+      sessionStore.applyAgentTimelineResponseState(host.serverId, "agent", {
+        items: [],
+        head: [],
+        range: { epoch: "epoch-1", startSeq: 1, endSeq: 1 },
+        older: "none",
+        newer: false,
+        synchronized: true,
+        acknowledgedClientMessageIds: [],
+      });
+      const owner = createViewedTimelineOwner({
+        serverId: host.serverId,
+        replica: createTimelineReplica({
           serverId: host.serverId,
-          hostname: null,
+          storage: { readTimeline: async () => undefined, commitTimeline: () => undefined },
+          prepareAgent: async () => undefined,
         }),
-        getClientId: async () => "compaction_queue",
-      },
-    });
-    const sessionStore = useSessionStore.getState();
-    sessionStore.initializeSession(host.serverId, fakeClient as unknown as DaemonClient, 1);
-    const queued = [
-      {
-        id: "queued",
-        text: "after compact",
-        attachments: [
-          {
-            kind: "workspace_file" as const,
-            path: "scope.md",
-            selection: { kind: "whole_file" as const },
-          },
-        ],
-      },
-    ];
-    sessionStore.setQueuedMessages(host.serverId, new Map([["agent", queued]]));
-    const marker = {
-      kind: "compaction" as const,
-      id: "compact",
-      status: "loading" as const,
-      timestamp: new Date(),
-    };
-    sessionStore.setAgentStreamTail(host.serverId, new Map([["agent", [marker]]]));
-    store.drainQueuedAgentMessage(host.serverId, "agent");
-    expect(fakeClient.sentAgentMessages).toEqual([]);
-    expect(useSessionStore.getState().sessions[host.serverId]?.queuedMessages.get("agent")).toEqual(
-      queued,
-    );
-    sessionStore.setAgentStreamTail(
-      host.serverId,
-      new Map([["agent", [{ ...marker, status: "completed" }]]]),
-    );
-    store.drainQueuedAgentMessage(host.serverId, "agent");
-    await fakeClient.waitForSentMessages(1);
-    expect(fakeClient.sentAgentMessages[0]?.[1]).toBe("after compact");
-    useSessionStore.getState().clearSession(host.serverId);
-  });
+        replaceDemandedAgentIds: () => undefined,
+        drainQueuedAgentMessage: (id) => store.drainQueuedAgentMessage(host.serverId, id),
+        ports: {
+          observe: () => ({ ready: Promise.resolve(), release: async () => undefined }),
+          readCursor: () => undefined,
+          fetchPage: async () => ({ hasNewer: false, endCursor: null }),
+          fetchLatestTail: async () => ({ hasNewer: false, endCursor: null }),
+          reportError: () => undefined,
+        },
+      });
+      const queued = [
+        {
+          id: "queued",
+          text: "after compact",
+          attachments: [
+            {
+              kind: "workspace_file" as const,
+              path: "scope.md",
+              selection: { kind: "whole_file" as const },
+            },
+          ],
+        },
+      ];
+      sessionStore.setQueuedMessages(host.serverId, new Map([["agent", queued]]));
+      const marker = {
+        kind: "compaction" as const,
+        id: "compact",
+        status: "loading" as const,
+        timestamp: new Date(),
+      };
+      sessionStore.setAgentStreamTail(host.serverId, new Map([["agent", [marker]]]));
+      store.drainQueuedAgentMessage(host.serverId, "agent");
+      expect(fakeClient.sentAgentMessages).toEqual([]);
+      expect(
+        useSessionStore.getState().sessions[host.serverId]?.queuedMessages.get("agent"),
+      ).toEqual(queued);
+      owner.enqueueStreamEvent("agent", {
+        event: {
+          type: "timeline",
+          provider: "codex",
+          item: { type: "compaction", status: "completed" },
+        },
+        seq: 2,
+        epoch: "epoch-1",
+        timestamp: new Date(),
+      });
+      owner.flushStreamAgent("agent");
+      if (running) {
+        expect(fakeClient.sentAgentMessages).toEqual([]);
+        sessionStore.setAgents(host.serverId, new Map([["agent", agent]]));
+        // This is the normal turn-stopped callback after automatic compaction resumes work.
+        store.drainQueuedAgentMessage(host.serverId, "agent");
+      }
+      await fakeClient.waitForSentMessages(1);
+      expect(fakeClient.sentAgentMessages[0]?.[1]).toBe("after compact");
+      expect(fakeClient.sentAgentMessages).toHaveLength(1);
+      expect(fakeClient.sentAgentMessages[0]?.[2]?.attachments).toEqual([
+        expect.objectContaining({ type: "text", title: "scope.md" }),
+      ]);
+      owner.dispose();
+      useSessionStore.getState().clearSession(host.serverId);
+    },
+  );
 
   it("restores an automatically drained message when sending fails", async () => {
     const host = makeHost({ serverId: "srv_failed_queue_drain" });

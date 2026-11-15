@@ -394,7 +394,16 @@ export function createViewedTimelineOwner(input: {
     setAgentStreamState: (...args) => useSessionStore.getState().setAgentStreamState(...args),
     setAgentTimelineCursor: (...args) => useSessionStore.getState().setAgentTimelineCursor(...args),
     recoverTimelineGap: (agentId, cursor) => sync.recoverGap(agentId, cursor),
-    onCommitted: (agentId) => input.replica.timelineUpdated(agentId),
+    onCommitted: (agentId, compactionCompleted) => {
+      input.replica.timelineUpdated(agentId);
+      // Idle can arrive before the batched compaction completion clears the delivery barrier.
+      // Retry after committing it; automatic compaction may still have a turn to finish.
+      if (compactionCompleted) {
+        const session = useSessionStore.getState().sessions[input.serverId];
+        const agent = session?.agents.get(agentId) ?? session?.agentDetails.get(agentId);
+        if (agent?.turn.phase === "idle") input.drainQueuedAgentMessage(agentId);
+      }
+    },
   });
   return {
     ...sync,
