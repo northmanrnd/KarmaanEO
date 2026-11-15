@@ -1,6 +1,10 @@
 import type { AgentTimelineItem } from "@getpaseo/protocol/agent-types";
 import type { AgentStreamEventPayload } from "@getpaseo/protocol/messages";
-import { selectAgentTimelineState, useSessionStore } from "@/stores/session-store";
+import {
+  selectAgentIsCompacting,
+  selectAgentTimelineState,
+  useSessionStore,
+} from "@/stores/session-store";
 import type { AssistantMessageItem, StreamItem, TodoEntry } from "@/types/stream";
 import type { TurnLivenessTransition } from "@/timeline/turn-liveness";
 import {
@@ -1834,7 +1838,7 @@ export interface CreateSessionAgentStreamReducerQueueInput {
     state: (prev: Map<string, TimelineCursor>) => Map<string, TimelineCursor>,
   ) => void;
   recoverTimelineGap: (agentId: string, cursor: { epoch: string; endSeq: number }) => void;
-  onCommitted?: (agentId: string) => void;
+  onCommitted?: (agentId: string, compactionCompleted: boolean) => void;
 }
 
 interface ScheduledReducerFlush {
@@ -1904,6 +1908,10 @@ export function createSessionAgentStreamReducerQueue(
       };
     },
     commit: (agentId, result, events) => {
+      const wasCompacting = selectAgentIsCompacting(
+        useSessionStore.getState().sessions[serverId],
+        agentId,
+      );
       if (
         result.changedTail ||
         result.changedHead ||
@@ -1948,7 +1956,11 @@ export function createSessionAgentStreamReducerQueue(
           return next;
         });
       }
-      onCommitted?.(agentId);
+      onCommitted?.(
+        agentId,
+        wasCompacting &&
+          !selectAgentIsCompacting(useSessionStore.getState().sessions[serverId], agentId),
+      );
     },
     handleSideEffects: (agentId, sideEffects) => {
       for (const effect of sideEffects) {

@@ -1,8 +1,10 @@
+import { getContinuedFromAgentId } from "@getpaseo/protocol/agent-labels";
+import { useSessionStore } from "@/stores/session-store";
 import type { Theme } from "@/styles/theme";
 import { StatusIcon } from "@/components/status-icon";
 import { useCallback, useMemo, type ReactElement, type ReactNode } from "react";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
-import { Check } from "lucide-react-native";
+import { ArrowDownRight, Check } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
 import invariant from "tiny-invariant";
@@ -23,6 +25,7 @@ export interface WorkspaceTabPresentation {
   titleState: "ready" | "loading";
   icon: React.ComponentType<PanelIconProps>;
   statusBucket: SidebarStateBucket | null;
+  continuation?: boolean;
 }
 
 interface WorkspaceTabPresentationResolverProps {
@@ -70,10 +73,26 @@ function WorkspaceTabPresentationResolverInner({
     workspaceId,
     tabId: tab.tabId,
   });
-  const attributes = usePanelInstanceAttributes({ serverId, workspaceId, tabId: tab.tabId });
+  const attributes = usePanelInstanceAttributes({
+    serverId,
+    workspaceId,
+    tabId: tab.tabId,
+  });
+
+  const sourceId = useSessionStore((state) => {
+    if (tab.target.kind !== "agent") return undefined;
+    const session = state.sessions[serverId];
+    const agent =
+      session?.agents?.get(tab.target.agentId) ?? session?.agentDetails?.get(tab.target.agentId);
+    return getContinuedFromAgentId(agent?.labels);
+  });
+  const continuation = Boolean(
+    sourceId || (tab.target.kind === "draft" && tab.target.setup?.continuedFromAgentId),
+  );
 
   const presentation = useMemo(
     () => ({
+      continuation,
       key: tab.key,
       kind: tab.kind,
       label: descriptor.label,
@@ -86,6 +105,7 @@ function WorkspaceTabPresentationResolverInner({
       statusBucket: descriptor.statusBucket,
     }),
     [
+      continuation,
       descriptor.icon,
       descriptor.label,
       descriptor.tooltip,
@@ -118,7 +138,9 @@ interface WorkspaceTabIconProps {
 }
 
 const ThemedCheckIcon = withUnistyles(Check);
-const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+const mutedColorMapping = (theme: Theme) => ({
+  color: theme.colors.foregroundMuted,
+});
 export function WorkspaceTabIcon({
   presentation,
   active = false,
@@ -136,7 +158,17 @@ export function WorkspaceTabIcon({
       statusDotBorderColor={statusDotBorderColor}
       backdrop={backdrop}
     >
-      <Icon size={size} color={iconColor} strokeWidth={strokeWidth} />
+      {presentation.continuation ? (
+        <ArrowDownRight
+          size={size}
+          color="#8881cf"
+          strokeWidth={strokeWidth ?? 1.8}
+          accessibilityLabel="Continuation agent"
+          testID="agent-continuation-tab-icon"
+        />
+      ) : (
+        <Icon size={size} color={iconColor} strokeWidth={strokeWidth} />
+      )}
     </StatusIcon>
   );
 }

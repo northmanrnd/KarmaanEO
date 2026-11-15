@@ -8261,6 +8261,19 @@ export class Session {
     msg: Extract<SessionInboundMessage, { type: "agent.fork_context.request" }>,
   ): Promise<void> {
     try {
+      if (msg.storedHistoryOnly) {
+        const context = await this.agentManager.buildStoredContinuationContext(msg.agentId);
+        this.emit({
+          type: "agent.fork_context.response",
+          payload: {
+            requestId: msg.requestId,
+            agentId: msg.agentId,
+            ...context,
+            error: null,
+          },
+        });
+        return;
+      }
       const snapshot = await ensureAgentLoaded(msg.agentId, {
         agentManager: this.agentManager,
         agentStorage: this.agentStorage,

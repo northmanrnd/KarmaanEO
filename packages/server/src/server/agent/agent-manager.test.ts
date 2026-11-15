@@ -12791,3 +12791,141 @@ test("placement move supports stored-only sessions without creating a provider",
     rmSync(workdir, { recursive: true, force: true });
   }
 });
+
+test("continuation links survive reload, allow multiple successors, reject cycles and workspace moves", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-continuation-"));
+  const storage = new AgentStorage(join(workdir, "agents"), logger);
+  const manager = new AgentManager({
+    clients: { codex: new TestAgentClient() },
+    registry: storage,
+    logger,
+  });
+  const key = "karmaaneo.continued-from-agent-id";
+  const created: string[] = [];
+  try {
+    const make = async (workspaceId = "workspace", labels = {}) => {
+      const agent = await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+        workspaceId,
+        labels,
+      });
+      created.push(agent.id);
+      return agent;
+    };
+    const source = await make();
+    const first = await make("workspace", { [key]: source.id });
+    const second = await make("workspace", { [key]: source.id });
+    await expect(
+      manager.updateAgentMetadata(source.id, { labels: { [key]: first.id } }),
+    ).rejects.toThrow("cycle");
+    await expect(manager.moveAgentToWorkspace(source.id, "other")).rejects.toThrow(
+      "continuation links",
+    );
+    await expect(manager.moveAgentToWorkspace(first.id, "other")).rejects.toThrow(
+      "continuation links",
+    );
+    const elsewhere = await make("elsewhere");
+    await expect(
+      manager.updateAgentMetadata(elsewhere.id, { labels: { [key]: source.id } }),
+    ).rejects.toThrow("same workspace");
+    await expect(
+      manager.updateAgentMetadata(first.id, { labels: { [key]: "missing" } }),
+    ).rejects.toThrow("unavailable");
+    await expect(make("elsewhere", { [key]: source.id })).rejects.toThrow("same workspace");
+    await manager.flush();
+    await storage.flush();
+    const reloaded = new AgentStorage(join(workdir, "agents"), logger);
+    expect((await reloaded.get(first.id))?.labels[key]).toBe(source.id);
+    expect((await reloaded.get(second.id))?.labels[key]).toBe(source.id);
+    await manager.archiveAgent(second.id);
+    await expect(
+      manager.unarchiveSnapshot(second.id, { workspaceId: "elsewhere" }),
+    ).rejects.toThrow("same workspace");
+    await manager.unarchiveSnapshot(second.id);
+    expect((await storage.get(second.id))?.labels[key]).toBe(source.id);
+    await manager.updateAgentMetadata(first.id, { labels: { [key]: "" } });
+    await manager.moveAgentToWorkspace(first.id, "other");
+    expect((await storage.get(first.id))?.workspaceId).toBe("other");
+  } finally {
+    await Promise.all(created.map((id) => manager.closeAgent(id)));
+    await manager.flush();
+    rmSync(workdir, { recursive: true, force: true });
+  }
+});
+
+test("concurrent continuation assignments cannot create a cycle", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-continuation-race-"));
+  const storage = new AgentStorage(join(workdir, "agents"), logger);
+  const manager = new AgentManager({
+    clients: { codex: new TestAgentClient() },
+    registry: storage,
+    logger,
+  });
+  const key = "karmaaneo.continued-from-agent-id";
+  const first = await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+    workspaceId: "workspace",
+  });
+  const second = await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+    workspaceId: "workspace",
+  });
+  try {
+    const results = await Promise.allSettled([
+      manager.updateAgentMetadata(first.id, { labels: { [key]: second.id } }),
+      manager.setLabels(second.id, { [key]: first.id }),
+    ]);
+    expect(results.map((result) => result.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(
+      (results.find((result) => result.status === "rejected") as PromiseRejectedResult).reason
+        .message,
+    ).toContain("cycle");
+  } finally {
+    await manager.closeAgent(first.id);
+    await manager.closeAgent(second.id);
+    await manager.flush();
+    rmSync(workdir, { recursive: true, force: true });
+  }
+});
+
+test("continuation history remains available after shutdown without accessing a provider", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-continuation-offline-"));
+  const storage = new AgentStorage(join(workdir, "agents"), logger);
+  const durable = new RecordingTimelineStore();
+  const manager = new AgentManager({
+    clients: { codex: new TestAgentClient() },
+    registry: storage,
+    durableTimelineStore: durable,
+    logger,
+  });
+  const source = await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+    workspaceId: "workspace",
+  });
+  try {
+    await manager.appendTimelineItem(source.id, {
+      type: "user_message",
+      text: "Implement the pending feature",
+    });
+    await manager.appendTimelineItem(source.id, {
+      type: "assistant_message",
+      text: "Saved progress",
+    });
+    await manager.flush();
+    const live = await manager.buildStoredContinuationContext(source.id);
+    expect(live.attachment.text.match(/Saved progress/g)).toHaveLength(1);
+    await manager.closeAgent(source.id);
+    await manager.flush();
+    const offline = new AgentManager({
+      registry: storage,
+      durableTimelineStore: durable,
+      clients: {},
+      logger,
+    });
+    const context = await offline.buildStoredContinuationContext(source.id);
+    expect(context.attachment.text).toContain("Implement the pending feature");
+    expect(context.attachment.text).toContain("Saved progress");
+    expect(offline.getAgent(source.id)).toBeNull();
+    await expect(offline.buildStoredContinuationContext("missing")).rejects.toThrow("unavailable");
+  } finally {
+    await manager.closeAgent(source.id);
+    await manager.flush();
+    rmSync(workdir, { recursive: true, force: true });
+  }
+});

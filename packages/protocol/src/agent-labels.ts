@@ -51,3 +51,12 @@ export function getParentAddressFromLabels(
 export function parentAddressLabels(parent: AgentAddress): Record<string, string> {
   return { [PARENT_AGENT_ID_LABEL]: parent.agentId, [PARENT_SERVER_ID_LABEL]: parent.serverId };
 }
+
+/** A continuation is a peer session, never a delegated child. Empty clears the link. */
+export const CONTINUED_FROM_AGENT_ID_LABEL = "karmaaneo.continued-from-agent-id";
+export function getContinuedFromAgentId(
+  labels: Record<string, unknown> | null | undefined,
+): string | null {
+  const value = labels?.[CONTINUED_FROM_AGENT_ID_LABEL];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
