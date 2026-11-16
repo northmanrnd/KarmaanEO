@@ -332,3 +332,37 @@ describe("useFileLink", () => {
 });
 
 const WorkspaceSwitchContext = React.createContext<(workspaceRoot: string) => void>(() => {});
+
+describe("file link menu resolution", () => {
+  afterEach(cleanup);
+  it("resolves a menu action without a hover or opening the editor", async () => {
+    const openedFiles: OpenedFile[] = [];
+    const client = {
+      getDirectorySuggestions: vi.fn(async () =>
+        resolvedSuggestions([{ path: "docs/dumm.md", kind: "file" as const }]),
+      ),
+    };
+    const { result } = renderHook(() => useFileLink(SOURCE), {
+      wrapper: createWrapper({ client, openedFiles }),
+    });
+    let target: InlinePathTarget | null = null;
+    await act(async () => {
+      target = await result.current.resolveTarget();
+    });
+    expect(target).toMatchObject({ path: "/Users/test/project/docs/dumm.md" });
+    expect(client.getDirectorySuggestions).toHaveBeenCalledTimes(1);
+    expect(openedFiles).toEqual([]);
+  });
+
+  it("never resolves an external URL to a Finder target", async () => {
+    const openedFiles: OpenedFile[] = [];
+    const client = { getDirectorySuggestions: vi.fn(async () => resolvedSuggestions([])) };
+    const { result } = renderHook(
+      () => useFileLink({ href: "https://example.com/docs/guide.md", markup: "link" }),
+      { wrapper: createWrapper({ client, openedFiles }) },
+    );
+    expect(result.current.canResolveFile).toBe(false);
+    expect(await result.current.resolveTarget()).toBeNull();
+    expect(client.getDirectorySuggestions).not.toHaveBeenCalled();
+  });
+});

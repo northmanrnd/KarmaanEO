@@ -1,3 +1,5 @@
+import { ContextMenu } from "@/components/ui/context-menu";
+import { useLocalFileLinkMenu } from "@/assistant-file-links/use-local-file-link-menu";
 import { Text } from "react-native";
 import { forwardRef, useCallback, useMemo, useState, type ComponentProps } from "react";
 import type {
@@ -30,8 +32,18 @@ function WebCodeBlock({ code, language }: CodeBlockRendererProps) {
 // The library styles links inline, so a stylesheet :hover rule cannot underline them.
 const LINK_HOVER_STYLE = { textDecoration: "underline" } as const;
 
-function WebLink({ link, anchorProps, children }: LinkRendererProps) {
-  const { tooltipPath, onHoverIn } = useFileLink(markdownLinkSource(link.url, link.sourceType));
+function WebLink(props: LinkRendererProps) {
+  return (
+    <ContextMenu>
+      <WebLinkContent {...props} />
+    </ContextMenu>
+  );
+}
+
+function WebLinkContent({ link, anchorProps, children }: LinkRendererProps) {
+  const fileLink = useFileLink(markdownLinkSource(link.url, link.sourceType));
+  const { tooltipPath, onHoverIn } = fileLink;
+  const fileMenu = useLocalFileLinkMenu(fileLink);
   const [hovered, setHovered] = useState(false);
   const handleMouseEnter = useCallback(() => setHovered(true), []);
   const handleMouseLeave = useCallback(() => setHovered(false), []);
@@ -46,6 +58,7 @@ function WebLink({ link, anchorProps, children }: LinkRendererProps) {
   const anchor = (
     <a
       {...anchorProps}
+      onContextMenu={fileMenu.onContextMenu}
       style={anchorStyle}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -54,18 +67,21 @@ function WebLink({ link, anchorProps, children }: LinkRendererProps) {
     </a>
   );
   return (
-    <Tooltip delayDuration={400}>
-      <TooltipTrigger asChild onHoverIn={onHoverIn}>
-        <InlineLinkTrigger>{anchor}</InlineLinkTrigger>
-      </TooltipTrigger>
-      {tooltipPath ? (
-        <TooltipContent side="top" align="start" maxWidth={520}>
-          <Text selectable={false} style={styles.tooltipPath}>
-            {tooltipPath}
-          </Text>
-        </TooltipContent>
-      ) : null}
-    </Tooltip>
+    <>
+      <Tooltip delayDuration={400}>
+        <TooltipTrigger asChild onHoverIn={onHoverIn}>
+          <InlineLinkTrigger>{anchor}</InlineLinkTrigger>
+        </TooltipTrigger>
+        {tooltipPath ? (
+          <TooltipContent side="top" align="start" maxWidth={520}>
+            <Text selectable={false} style={styles.tooltipPath}>
+              {tooltipPath}
+            </Text>
+          </TooltipContent>
+        ) : null}
+      </Tooltip>
+      {fileMenu.content}
+    </>
   );
 }
 // TooltipTrigger also supplies native Pressable handlers; forward only DOM events.
