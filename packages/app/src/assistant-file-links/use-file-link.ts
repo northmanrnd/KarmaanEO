@@ -22,6 +22,8 @@ import {
 export interface UseFileLinkResult {
   target: InlinePathTarget | null;
   tooltipPath: string | null;
+  canResolveFile: boolean;
+  resolveTarget: () => Promise<InlinePathTarget | null>;
   onHoverIn: () => void;
   onPress: () => void;
   open: (source: AssistantFileLinkSource, disposition: OpenFileDisposition) => void;
@@ -140,10 +142,18 @@ export function useFileLink(source: AssistantFileLinkSource): UseFileLinkResult 
     return query.data ?? null;
   }, [query.data, resolution]);
 
+  const canResolveFile = resolution.kind === "needsLookup" || resolution.value.kind === "file";
+  const resolveTarget = useStableEvent(async () => {
+    if (resolution.kind === "resolved")
+      return resolution.value.kind === "file" ? resolution.value.target : null;
+    const result = await query.refetch({ throwOnError: true });
+    return result.data ?? null;
+  });
+
   const tooltipPath = target ? formatFileLinkTooltipPath({ target, workspaceRoot }) : null;
   return useMemo(
-    () => ({ target, tooltipPath, onHoverIn, onPress, open }),
-    [target, tooltipPath, onHoverIn, onPress, open],
+    () => ({ target, tooltipPath, onHoverIn, onPress, open, canResolveFile, resolveTarget }),
+    [target, tooltipPath, onHoverIn, onPress, open, canResolveFile, resolveTarget],
   );
 }
 
