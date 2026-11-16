@@ -1,3 +1,8 @@
+import {
+  clearPlacementHover,
+  finishPlacementDrop,
+  updatePlacementHover,
+} from "@/workspace/placement-drag/registry.web";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { View, Text } from "react-native";
 import { useTranslation } from "react-i18next";
@@ -65,6 +70,12 @@ function asDragOverData(data: unknown): WorkspaceTabDragData | SplitPaneDropData
   if (isWorkspaceTabDragData(data)) return data;
   if (isSplitPaneDropData(data)) return data;
   return undefined;
+}
+
+function placementPoint(event: Pick<DragMoveEvent, "activatorEvent" | "delta">) {
+  const start = event.activatorEvent;
+  if (!("clientX" in start) || !("clientY" in start)) return null;
+  return { x: Number(start.clientX) + event.delta.x, y: Number(start.clientY) + event.delta.y };
 }
 
 interface DragMoveRects {
@@ -222,13 +233,20 @@ export function WorkspaceTabDragScope({
   }, []);
 
   const handleDragCancel = useCallback(() => {
+    clearPlacementHover();
     setActiveDragTabId(null);
     setDropPreview(null);
     setTabDropPreview(null);
   }, []);
 
   const updateDropPreview = useCallback(
-    (event: Pick<DragMoveEvent, "active" | "over"> | Pick<DragOverEvent, "active" | "over">) => {
+    (event: DragMoveEvent | DragOverEvent) => {
+      const point = placementPoint(event);
+      if (point && updatePlacementHover(point.x, point.y)) {
+        setDropPreview(null);
+        setTabDropPreview(null);
+        return;
+      }
       const activeData = asWorkspaceTabDragData(event.active.data.current);
       const overData = asDragOverData(event.over?.data.current);
 
@@ -356,6 +374,22 @@ export function WorkspaceTabDragScope({
       const overData = asDragOverData(event.over?.data.current);
 
       setActiveDragTabId(null);
+      const point = placementPoint(event);
+      const tab = activeData && uiTabs.find((entry) => entry.tabId === activeData.tabId);
+      if (
+        point &&
+        tab &&
+        finishPlacementDrop(
+          { kind: "tab", serverId: normalizedServerId, workspaceId: normalizedWorkspaceId, tab },
+          point.x,
+          point.y,
+        )
+      ) {
+        setDropPreview(null);
+        setTabDropPreview(null);
+        return;
+      }
+      clearPlacementHover();
 
       if (
         activeData &&
@@ -373,7 +407,14 @@ export function WorkspaceTabDragScope({
       setDropPreview(null);
       setTabDropPreview(null);
     },
-    [allowCrossPane, applyTabDropEnd, applyPaneDropEnd],
+    [
+      allowCrossPane,
+      applyTabDropEnd,
+      applyPaneDropEnd,
+      uiTabs,
+      normalizedServerId,
+      normalizedWorkspaceId,
+    ],
   );
 
   const context = useMemo(
