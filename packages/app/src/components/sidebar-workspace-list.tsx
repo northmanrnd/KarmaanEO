@@ -1,3 +1,11 @@
+import {
+  PlacementProject,
+  PlacementProjectHeader,
+  PlacementNewWorkspace,
+  PlacementWorkspace,
+  usePlacementWorkspaceDragging,
+  usePlacementWorkspaceManaged,
+} from "@/workspace/placement-drag/sidebar-placement";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   View,
@@ -431,13 +439,15 @@ function ProjectRowTrailingActions({
   return (
     <View style={styles.projectTrailingActions}>
       {worktreeTarget ? (
-        <NewWorktreeButton
-          displayName={displayName}
-          onPress={onBeginWorkspaceSetup}
-          visible={actionsVisible}
-          showShortcutHint={isProjectActive}
-          testID={`sidebar-project-new-worktree-${projectViewKey}`}
-        />
+        <PlacementNewWorkspace>
+          <NewWorktreeButton
+            displayName={displayName}
+            onPress={onBeginWorkspaceSetup}
+            visible={actionsVisible}
+            showShortcutHint={isProjectActive}
+            testID={`sidebar-project-new-worktree-${projectViewKey}`}
+          />
+        </PlacementNewWorkspace>
       ) : null}
       {onRemoveProject ? (
         <View
@@ -815,37 +825,39 @@ function NewWorkspaceGhostRow({
   );
 
   return (
-    <Pressable
-      accessibilityRole={platformIsWeb ? undefined : "button"}
-      accessibilityLabel={t("sidebar.workspace.actions.createWorkspaceFor", {
-        projectName: displayName,
-      })}
-      onPress={handlePress}
-      style={rowStyle}
-      testID={`sidebar-project-new-workspace-row-${project.viewKey}`}
-    >
-      {({ hovered, pressed }) => (
-        <>
-          <View style={styles.newWorkspaceGhostIconSlot}>
-            <DensityIcon
-              icon={Plus}
-              size="sm"
-              color={hovered || pressed ? "foreground" : "foregroundMuted"}
-            />
-          </View>
-          <Text
-            style={
-              hovered || pressed
-                ? styles.newWorkspaceGhostTextHovered
-                : styles.newWorkspaceGhostText
-            }
-            numberOfLines={1}
-          >
-            {t("sidebar.workspace.actions.newWorkspace")}
-          </Text>
-        </>
-      )}
-    </Pressable>
+    <PlacementNewWorkspace>
+      <Pressable
+        accessibilityRole={platformIsWeb ? undefined : "button"}
+        accessibilityLabel={t("sidebar.workspace.actions.createWorkspaceFor", {
+          projectName: displayName,
+        })}
+        onPress={handlePress}
+        style={rowStyle}
+        testID={`sidebar-project-new-workspace-row-${project.viewKey}`}
+      >
+        {({ hovered, pressed }) => (
+          <>
+            <View style={styles.newWorkspaceGhostIconSlot}>
+              <DensityIcon
+                icon={Plus}
+                size="sm"
+                color={hovered || pressed ? "foreground" : "foregroundMuted"}
+              />
+            </View>
+            <Text
+              style={
+                hovered || pressed
+                  ? styles.newWorkspaceGhostTextHovered
+                  : styles.newWorkspaceGhostText
+              }
+              numberOfLines={1}
+            >
+              {t("sidebar.workspace.actions.newWorkspace")}
+            </Text>
+          </>
+        )}
+      </Pressable>
+    </PlacementNewWorkspace>
   );
 }
 
@@ -1059,7 +1071,7 @@ function WorkspaceRowInner({
   showShortcutBadge,
   onPress,
   drag,
-  isDragging,
+  isDragging: listIsDragging,
   isArchiving,
   isCreating = false,
   dragHandleProps,
@@ -1078,6 +1090,13 @@ function WorkspaceRowInner({
   onTogglePin,
   reserveIdleStatusIndicatorSpace = true,
 }: WorkspaceRowInnerProps) {
+  const managesPlacementDrag = usePlacementWorkspaceManaged();
+  const workspaceDragHandleProps =
+    managesPlacementDrag && dragHandleProps
+      ? { ...dragHandleProps, listeners: { onKeyDown: dragHandleProps.listeners?.onKeyDown } }
+      : dragHandleProps;
+  const placementDragging = usePlacementWorkspaceDragging();
+  const isDragging = listIsDragging || placementDragging;
   const isCompact = useIsCompactFormFactor();
   const [isPressed, setIsPressed] = useState(false);
   const isTouchPlatform = platformIsNative || isCompact;
@@ -1090,7 +1109,7 @@ function WorkspaceRowInner({
     tabIndex: _dragTabIndex,
     "aria-roledescription": _dragRoleDescription,
     ...dragAttributes
-  } = dragHandleProps?.attributes ?? {};
+  } = workspaceDragHandleProps?.attributes ?? {};
 
   const handlePress = useCallback(() => {
     if (interaction.didLongPressRef.current) {
@@ -1128,8 +1147,8 @@ function WorkspaceRowInner({
         return (
           <View
             {...dragAttributes}
-            {...dragHandleProps?.listeners}
-            ref={dragHandleProps?.setActivatorNodeRef as unknown as Ref<View>}
+            {...workspaceDragHandleProps?.listeners}
+            ref={workspaceDragHandleProps?.setActivatorNodeRef as unknown as Ref<View>}
             style={styles.workspaceRowContainer}
             {...hoverHandlers}
           >
@@ -1327,35 +1346,37 @@ function WorkspaceRowWithMenu({
 
   return (
     <>
-      <WorkspaceRowInner
-        workspace={workspace}
-        hostBadge={hostBadge}
-        leadingProjectName={leadingProjectName}
-        leadingProjectIconDataUri={leadingProjectIconDataUri}
-        selected={selected}
-        shortcutNumber={shortcutNumber}
-        showShortcutBadge={showShortcutBadge}
-        onPress={onPress}
-        drag={drag}
-        isDragging={isDragging}
-        isArchiving={isArchiving}
-        isCreating={isCreating}
-        dragHandleProps={dragHandleProps}
-        menuController={null}
-        archiveLabel={t("sidebar.workspace.actions.archive")}
-        archiveStatus={isArchiving ? "pending" : "idle"}
-        archivePendingLabel={t("sidebar.workspace.actions.archiving")}
-        onArchive={handleArchive}
-        onCopyBranchName={canCopyBranchName ? handleCopyBranchName : undefined}
-        onCopyPath={handleCopyPath}
-        onRename={handleOpenRename}
-        onMarkAsRead={hasClearableAttention ? handleMarkAsRead : undefined}
-        onMarkAsUnread={canMarkUnread ? handleMarkAsUnread : undefined}
-        archiveShortcutKeys={selected ? archiveShortcutKeys : null}
-        isPinned={isPinned}
-        onTogglePin={onTogglePin}
-        reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
-      />
+      <PlacementWorkspace workspace={workspace} disabled={isArchiving || isCreating}>
+        <WorkspaceRowInner
+          workspace={workspace}
+          hostBadge={hostBadge}
+          leadingProjectName={leadingProjectName}
+          leadingProjectIconDataUri={leadingProjectIconDataUri}
+          selected={selected}
+          shortcutNumber={shortcutNumber}
+          showShortcutBadge={showShortcutBadge}
+          onPress={onPress}
+          drag={drag}
+          isDragging={isDragging}
+          isArchiving={isArchiving}
+          isCreating={isCreating}
+          dragHandleProps={dragHandleProps}
+          menuController={null}
+          archiveLabel={t("sidebar.workspace.actions.archive")}
+          archiveStatus={isArchiving ? "pending" : "idle"}
+          archivePendingLabel={t("sidebar.workspace.actions.archiving")}
+          onArchive={handleArchive}
+          onCopyBranchName={canCopyBranchName ? handleCopyBranchName : undefined}
+          onCopyPath={handleCopyPath}
+          onRename={handleOpenRename}
+          onMarkAsRead={hasClearableAttention ? handleMarkAsRead : undefined}
+          onMarkAsUnread={canMarkUnread ? handleMarkAsUnread : undefined}
+          archiveShortcutKeys={selected ? archiveShortcutKeys : null}
+          isPinned={isPinned}
+          onTogglePin={onTogglePin}
+          reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
+        />
+      </PlacementWorkspace>
       <WorkspaceRenameModal
         visible={isRenameOpen}
         workspace={workspace}
@@ -1818,36 +1839,42 @@ function ProjectBlock({
   }
 
   return (
-    <View
-      role="group"
-      accessibilityLabel={displayName}
-      style={projectChildren ? styles.projectBlockExpanded : undefined}
-    >
-      <ProjectHeaderRow
-        project={project}
-        displayName={displayName}
-        iconDataUri={iconDataUri}
-        statusBucket={aggregateStatusBucket}
-        selected={false}
-        chevron={rowModel.chevron}
-        onPress={handleToggleCollapsed}
-        worktreeTarget={
-          rowModel.trailingAction.kind === "new_workspace" ? rowModel.trailingAction.target : null
-        }
-        isProjectActive={active}
-        onWorkspacePress={onWorkspacePress}
-        onWorktreeCreated={onWorktreeCreated}
-        drag={drag}
-        isDragging={isDragging}
-        isArchiving={isRemovingProject}
-        menuController={null}
-        onRemoveProject={handleRemoveProject}
-        removeProjectStatus={isRemovingProject ? "pending" : "idle"}
-        dragHandleProps={dragHandleProps}
-      />
+    <PlacementProject project={project}>
+      <View
+        role="group"
+        accessibilityLabel={displayName}
+        style={projectChildren ? styles.projectBlockExpanded : undefined}
+      >
+        <PlacementProjectHeader>
+          <ProjectHeaderRow
+            project={project}
+            displayName={displayName}
+            iconDataUri={iconDataUri}
+            statusBucket={aggregateStatusBucket}
+            selected={false}
+            chevron={rowModel.chevron}
+            onPress={handleToggleCollapsed}
+            worktreeTarget={
+              rowModel.trailingAction.kind === "new_workspace"
+                ? rowModel.trailingAction.target
+                : null
+            }
+            isProjectActive={active}
+            onWorkspacePress={onWorkspacePress}
+            onWorktreeCreated={onWorktreeCreated}
+            drag={drag}
+            isDragging={isDragging}
+            isArchiving={isRemovingProject}
+            menuController={null}
+            onRemoveProject={handleRemoveProject}
+            removeProjectStatus={isRemovingProject ? "pending" : "idle"}
+            dragHandleProps={dragHandleProps}
+          />
+        </PlacementProjectHeader>
 
-      {projectChildren}
-    </View>
+        {projectChildren}
+      </View>
+    </PlacementProject>
   );
 }
 
