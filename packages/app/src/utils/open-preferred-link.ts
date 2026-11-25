@@ -1,4 +1,4 @@
-import { dispatchPreferredLink } from "./link-destination";
+import { dispatchPreferredLink, preferredLinkDestination } from "./link-destination";
 import { isElectronRuntime } from "@/desktop/host";
 import { loadAppSettingsFromStorage } from "@/hooks/use-settings";
 import { useSessionStore } from "@/stores/session-store";
@@ -15,7 +15,7 @@ export async function openPreferredLink(
   if (!isHttpUrl(url)) return;
   const settings = await loadAppSettingsFromStorage();
   if (
-    settings.linkBrowser === "in-app" &&
+    preferredLinkDestination(url, settings.linkBrowser) === "in-app" &&
     isElectronRuntime() &&
     context.serverId &&
     context.workspaceRoot

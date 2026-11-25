@@ -136,6 +136,7 @@ interface TerminalEmulatorProps {
     disposition: "main" | "side",
   ) => Promise<void> | void;
   onRendererReadyChange?: (change: TerminalRendererReadyChange) => void;
+  onOpenUrl?: (url: string) => Promise<void> | void;
   onFilePaste?: (file: Promise<TerminalFile | null>) => void;
   pendingModifiers?: PendingTerminalModifiers;
   focusRequestToken?: number;
@@ -174,6 +175,7 @@ export default function TerminalEmulator({
   onOpenLocalFileLink,
   onRendererReadyChange,
   onFilePaste,
+  onOpenUrl,
   pendingModifiers = { ctrl: false, shift: false, alt: false },
   focusRequestToken = 0,
   resizeRequestToken = 0,
@@ -206,6 +208,7 @@ export default function TerminalEmulator({
     onResolveLocalFileLink,
     onOpenLocalFileLink,
     onFilePaste,
+    onOpenUrl,
   });
   mountCallbacksRef.current = {
     onFindRequest,
@@ -218,6 +221,7 @@ export default function TerminalEmulator({
     onResolveLocalFileLink,
     onOpenLocalFileLink,
     onFilePaste,
+    onOpenUrl,
   };
   const pendingModifiersRef = useRef(pendingModifiers);
   pendingModifiersRef.current = pendingModifiers;
@@ -452,7 +456,7 @@ export default function TerminalEmulator({
     runtime.setCallbacks({
       callbacks: {
         ...mountCallbacksRef.current,
-        onOpenExternalUrl: openExternalUrl,
+        onOpenExternalUrl: (url) => (mountCallbacksRef.current.onOpenUrl ?? openExternalUrl)(url),
       },
     });
     runtime.setPendingModifiers({ pendingModifiers: pendingModifiersRef.current });
@@ -489,12 +493,13 @@ export default function TerminalEmulator({
         onResolveLocalFileLink,
         onOpenLocalFileLink,
         onFilePaste,
-        onOpenExternalUrl: openExternalUrl,
+        onOpenExternalUrl: onOpenUrl ?? openExternalUrl,
       },
     });
   }, [
     onFindRequest,
     onFilePaste,
+    onOpenUrl,
     onFindResult,
     onInput,
     onInputModeChange,

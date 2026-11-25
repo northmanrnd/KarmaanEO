@@ -1,3 +1,4 @@
+import { browserActivityKey, useBrowserActivity } from "./activity";
 import { beforeEach, describe, expect, test } from "vitest";
 import type { SessionInboundMessage, SessionOutboundMessage } from "@getpaseo/protocol/messages";
 import { createJSONStorage, type StateStorage } from "zustand/middleware";
@@ -277,9 +278,36 @@ useWorkspaceLayoutStore.persist.setOptions({
 
 describe("mountBrowserAutomationHandler", () => {
   beforeEach(() => {
+    useBrowserActivity.setState({ byAgent: {}, paused: {} });
     browserAutomationStorage.clear();
     useBrowserStore.setState({ browsersById: {} });
     useWorkspaceLayoutStore.setState({ layoutByWorkspace: {} });
+  });
+
+  test("records the agent tab and blocks automation until the user resumes", async () => {
+    const browser = new BrowserAutomationHandlerHarness();
+    browser.mount({ serverId: "server-1" });
+    browser.receive(browserNewTabRequest());
+    await flushAsyncWork();
+    const activity =
+      useBrowserActivity.getState().byAgent[browserActivityKey("server-1", "agent-1")];
+    expect(activity.command).toBe("new_tab");
+    useBrowserActivity.getState().setPaused(activity.browserId, true);
+    const before = browser.browser.executedRequests.length;
+    browser.receive(browserResizeRequest(activity.browserId));
+    await flushAsyncWork();
+    expect(browser.client.payloadAt(1).ok).toBe(false);
+    expect(browser.browser.executedRequests).toHaveLength(before);
+    useBrowserActivity.getState().setPaused(activity.browserId, false);
+    browser.receive(browserResizeRequest(activity.browserId));
+    await flushAsyncWork();
+    expect(browser.client.payloadAt(2).ok).toBe(true);
+    browser.receive(browserCloseTabRequest(activity.browserId));
+    await flushAsyncWork();
+    expect(
+      useBrowserActivity.getState().byAgent[browserActivityKey("server-1", "agent-1")],
+    ).toBeUndefined();
+    browser.unmount();
   });
 
   test("browser_new_tab creates a workspace browser tab without stealing focus", async () => {

@@ -1,3 +1,4 @@
+import { recordBrowserActivity, useBrowserActivity } from "./activity";
 import { BROWSER_AUTOMATION_COMMAND_NAMES } from "@getpaseo/protocol/browser-automation/rpc-schemas";
 import type { SessionInboundMessage, SessionOutboundMessage } from "@getpaseo/protocol/messages";
 import { getDesktopHost, type DesktopHostBridge } from "@/desktop/host";
@@ -49,8 +50,27 @@ export function mountBrowserAutomationHandler(
 ): () => void {
   const getHost = options.getHost ?? getDesktopHost;
   const unsubscribe = options.client.on("browser.automation.execute.request", (request) => {
+    const args = request.command.args;
+    if ("browserId" in args && useBrowserActivity.getState().paused[args.browserId]) {
+      options.client.sendBrowserAutomationExecuteResponse({
+        type: "browser.automation.execute.response",
+        payload: browserAutomationFailure({
+          requestId: request.requestId,
+          code: "browser_unsupported",
+          message:
+            "The user paused automation for this tab. Wait for them to resume it from the browser preview.",
+        }),
+      });
+      return;
+    }
     void handleBrowserAutomationRequest({
-      client: options.client,
+      client: {
+        ...options.client,
+        sendBrowserAutomationExecuteResponse: (response) => {
+          recordBrowserActivity(options.serverId, request, response.payload);
+          options.client.sendBrowserAutomationExecuteResponse(response);
+        },
+      },
       getHost,
       request,
       serverId: options.serverId,

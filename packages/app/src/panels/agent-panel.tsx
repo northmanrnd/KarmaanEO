@@ -1,3 +1,4 @@
+import { AgentBrowserPreview } from "@/desktop/browser/agent-preview";
 import { AgentContinuations } from "@/continuations/agent-continuations";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { Button } from "@/components/ui/button";
@@ -1236,6 +1237,7 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
         agent={effectiveAgent}
         toast={toastApi}
       />
+      <AgentBrowserPreview serverId={serverId} workspaceId={workspaceId} agentId={agentId} />
       {streamContent}
 
       {showHistorySyncError ? (

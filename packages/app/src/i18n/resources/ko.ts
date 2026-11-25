@@ -1960,6 +1960,8 @@ export const ko: TranslationResources = {
         alwaysUseFilename: "{{filename}}에 항상 사용",
         option: "{{title}} — {{owner}}",
         builtin: {
+          pdf: "PDF",
+          spreadsheet: "스프레드시트",
           owner: "Paseo",
           markdown: "Markdown",
           html: "HTML",

@@ -1950,6 +1950,8 @@ export const ar: TranslationResources = {
         alwaysUseFilename: "استخدام دائمًا لـ {{filename}}",
         option: "{{title}} — {{owner}}",
         builtin: {
+          pdf: "PDF",
+          spreadsheet: "جدول بيانات",
           owner: "Paseo",
           markdown: "Markdown",
           html: "HTML",

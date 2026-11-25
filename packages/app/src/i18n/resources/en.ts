@@ -1986,6 +1986,8 @@ export const en = {
         alwaysUseFilename: "Always use for {{filename}}",
         option: "{{title}} — {{owner}}",
         builtin: {
+          pdf: "PDF",
+          spreadsheet: "Spreadsheet",
           owner: "Paseo",
           markdown: "Markdown",
           html: "HTML",

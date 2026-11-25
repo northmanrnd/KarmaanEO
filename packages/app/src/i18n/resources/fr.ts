@@ -1996,6 +1996,8 @@ export const fr: TranslationResources = {
         alwaysUseFilename: "Toujours utiliser pour {{filename}}",
         option: "{{title}} — {{owner}}",
         builtin: {
+          pdf: "PDF",
+          spreadsheet: "Feuille de calcul",
           owner: "Paseo",
           markdown: "Markdown",
           html: "HTML",

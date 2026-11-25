@@ -62,7 +62,25 @@ Branch drafts retain original image and structured attachment payloads available
 
 Returning to a message restores its available attachments into editable composer pills after the provider successfully rewinds the conversation. Existing draft text and attachments are preserved. Remove a pill to omit it, or use the normal picker/drop flow to add a replacement. Files-only rewind does not change the composer. Missing stored image bytes produce an error before rewind; sending also fails rather than silently omitting an image. Provider rewind capabilities remain authoritative; no native transcript is edited in place.
 
-Settings → General → Open links in selects the built-in browser or the default OS browser for ordinary chat and document HTTP(S) links. This preference persists independently of script service URL choices. Where an in-app workspace browser is unavailable, links use the OS browser. Explicitly external actions keep their original destination. Copy file path on file tabs resolves relative paths against that workspace's directory.
+Settings → General → Open links in selects the built-in browser or the default OS browser for ordinary chat and document HTTP(S) links. Terminal web links use the same preference. Localhost, loopback IPv4/IPv6, and `.localhost` links open in the built-in workspace browser on desktop, including service links. This preference persists independently of script service URL choices. Where an in-app workspace browser is unavailable, links use the OS browser. Explicitly external actions keep their original destination. Copy file path on file tabs resolves relative paths against that workspace's directory.
+
+## Browser and document previews
+
+When an agent uses the built-in browser, its chat shows a preview of its latest tab.
+The preview refreshes while expanded and visible without selecting the browser tab.
+**Open tab** reveals that same tab. **Pause automation** blocks subsequent agent
+commands for the tab until **Resume automation**; an action already in progress can
+finish. Closing a tab removes its preview. Activity and pause state last for the current
+app session. Browser tools still require the host opt-in described in
+[Browser automation](../public-docs/browser.md).
+
+PDFs open in the built-in document viewer without installing a plugin. Spreadsheet
+previews support XLSX, XLS, XLSM, XLSB, ODS, CSV and TSV, with worksheet selection,
+formatted cell values, virtualized rows and column paging for wide sheets. Previews
+refresh when the file changes. Binary workbooks are read-only; CSV/TSV retain their
+editable source alongside the grid preview. Formulas show their saved values,
+or the formula text when no saved value exists. Macros are not executed. Existing file
+panel associations can still select an installed alternative viewer.
 
 ## Continuing work in another agent
 

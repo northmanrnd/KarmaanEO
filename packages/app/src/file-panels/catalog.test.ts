@@ -86,3 +86,13 @@ describe("built-in file panels", () => {
     },
   );
 });
+
+it("opens PDF and workbooks without requiring a plugin", () => {
+  expect(panelId({ path: "report.PDF", kind: "binary" })).toBe("builtin:pdf");
+  for (const extension of ["xlsx", "xls", "xlsm", "xlsb", "ods"]) {
+    expect(panelId({ path: `book.${extension}`, kind: "binary" })).toBe("builtin:spreadsheet");
+  }
+  for (const extension of ["csv", "tsv"]) {
+    expect(panelId({ path: `data.${extension}`, kind: "text" })).toBe("builtin:spreadsheet");
+  }
+});

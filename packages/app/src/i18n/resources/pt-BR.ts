@@ -1983,6 +1983,8 @@ export const ptBR: TranslationResources = {
         alwaysUseFilename: "Sempre usar para {{filename}}",
         option: "{{title}} — {{owner}}",
         builtin: {
+          pdf: "PDF",
+          spreadsheet: "Planilha",
           owner: "Paseo",
           markdown: "Markdown",
           html: "HTML",

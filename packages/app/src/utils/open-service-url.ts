@@ -7,6 +7,8 @@ import {
 import { i18n } from "@/i18n/i18next";
 import { openExternalUrl } from "@/utils/open-external-url";
 
+import { preferredLinkDestination } from "./link-destination";
+
 export interface OpenServiceUrlOptions {
   openInApp?: (url: string) => void;
 }
@@ -18,7 +20,8 @@ export async function openServiceUrl(url: string, options?: OpenServiceUrlOption
     return;
   }
 
-  const behavior = await resolveBehavior(url);
+  const behavior =
+    preferredLinkDestination(url, "external") === "in-app" ? "in-app" : await resolveBehavior(url);
   if (behavior === "in-app") {
     openInApp(url);
     return;
