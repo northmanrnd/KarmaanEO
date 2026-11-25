@@ -5,7 +5,7 @@ import { StyleSheet } from "react-native-unistyles";
 import { ZoomableImage } from "@/components/zoomable-viewport/image";
 import { useSessionStore } from "@/stores/session-store";
 import { DocumentFrame } from "./document-frame";
-import { SpreadsheetPanel } from "./spreadsheet/panel";
+import { SpreadsheetPanel, SpreadsheetTextPreview } from "./spreadsheet/panel";
 import { FileHtmlPreview } from "./html-preview";
 import { FilePanelLoading } from "./loading";
 import { FileMarkdownPreview } from "./markdown-preview";
@@ -67,6 +67,13 @@ function ImagePanel({ file }: PluginFilePanelProps) {
   return <ZoomableImage uri={url.url} testID="image-file-preview" />;
 }
 
+function SpreadsheetFilePanel(props: PluginFilePanelProps) {
+  if (["csv", "tsv"].includes(props.file.extension)) {
+    return <TextFilePanel {...props} preview={SpreadsheetTextPreview} />;
+  }
+  return <SpreadsheetPanel {...props} />;
+}
+
 function PdfPanel({ file }: PluginFilePanelProps) {
   const url = useFileUrl(file);
   if (url.status === "loading") return <FilePanelLoading />;
@@ -84,7 +91,7 @@ function FilePanelError({ message }: { message: string }) {
 
 const components = {
   "builtin:pdf": PdfPanel,
-  "builtin:spreadsheet": SpreadsheetPanel,
+  "builtin:spreadsheet": SpreadsheetFilePanel,
   "builtin:markdown": MarkdownPanel,
   "builtin:html": HtmlPanel,
   "builtin:image": ImagePanel,

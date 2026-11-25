@@ -1,7 +1,12 @@
 import { read, utils, type WorkBook, type WorkSheet } from "xlsx";
 
-export function readWorkbook(bytes: Uint8Array): WorkBook {
-  return read(bytes, { type: "array", cellFormula: true, cellText: true, cellStyles: true });
+export function readWorkbook(bytes: Uint8Array | string): WorkBook {
+  return read(bytes, {
+    type: typeof bytes === "string" ? "string" : "array",
+    cellFormula: true,
+    cellText: true,
+    cellStyles: true,
+  });
 }
 
 export function sheetRange(sheet: WorkSheet) {

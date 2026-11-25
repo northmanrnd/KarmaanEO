@@ -13,20 +13,33 @@ const COLUMNS_PER_PAGE = 30;
 
 export function SpreadsheetPanel({ file }: PluginFilePanelProps) {
   const bytes = useFileBytes(file);
+  const content = bytes.status === "ready" ? bytes.bytes : null;
   const parsed = useMemo(() => {
-    if (bytes.status !== "ready") return null;
+    if (!content) return null;
     try {
-      return { workbook: readWorkbook(bytes.bytes), error: null };
+      return { workbook: readWorkbook(content), error: null };
     } catch (error) {
       return { workbook: null, error: error instanceof Error ? error.message : String(error) };
     }
-  }, [bytes]);
+  }, [content]);
   if (bytes.status === "loading") return <FilePanelLoading />;
   const error = bytes.status === "error" ? bytes.error.message : parsed?.error;
   if (error) return <Text style={styles.error}>{error}</Text>;
   const workbook = parsed?.workbook;
   if (!workbook) return <FilePanelLoading />;
   return <WorkbookView workbook={workbook} />;
+}
+
+export function SpreadsheetTextPreview({ text }: { text: string }) {
+  const parsed = useMemo(() => {
+    try {
+      return { workbook: readWorkbook(text), error: null };
+    } catch (error) {
+      return { workbook: null, error: error instanceof Error ? error.message : String(error) };
+    }
+  }, [text]);
+  if (!parsed.workbook) return <Text style={styles.error}>{parsed.error}</Text>;
+  return <WorkbookView workbook={parsed.workbook} />;
 }
 
 export function WorkbookView({ workbook }: { workbook: WorkBook }) {

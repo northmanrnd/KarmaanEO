@@ -77,7 +77,8 @@ app session. Browser tools still require the host opt-in described in
 PDFs open in the built-in document viewer without installing a plugin. Spreadsheet
 previews support XLSX, XLS, XLSM, XLSB, ODS, CSV and TSV, with worksheet selection,
 formatted cell values, virtualized rows and column paging for wide sheets. Previews
-refresh when the file changes. They are read-only; formulas show their saved values,
+refresh when the file changes. Binary workbooks are read-only; CSV/TSV retain their
+editable source alongside the grid preview. Formulas show their saved values,
 or the formula text when no saved value exists. Macros are not executed. Existing file
 panel associations can still select an installed alternative viewer.
 

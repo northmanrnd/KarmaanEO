@@ -31,3 +31,10 @@ describe("spreadsheet preview", () => {
     expect(columnLabel(27)).toBe("AB");
   });
 });
+
+it("previews delimited source text without rewriting quoted cells", () => {
+  const csv = readWorkbook('Item,Quantity\n"Duct, insulated",12\n');
+  expect(cellText(csv.Sheets[csv.SheetNames[0]], 1, 0)).toBe("Duct, insulated");
+  const tsv = readWorkbook("Item\tQuantity\nGrille\t8\n");
+  expect(cellText(tsv.Sheets[tsv.SheetNames[0]], 1, 1)).toBe("8");
+});
