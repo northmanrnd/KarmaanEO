@@ -1,3 +1,4 @@
+import { openPreferredLink } from "@/utils/open-preferred-link";
 import { TerminalFind, type TerminalPaneFindHandle } from "@/terminal/find";
 import type { TerminalFindResult } from "@/terminal/runtime/terminal-emulator-runtime";
 import type { TerminalCharacterWidths } from "@/terminal/character-widths";
@@ -1038,6 +1039,11 @@ export function TerminalPane({
     },
     [client, cwd],
   );
+  const handleOpenUrl = useCallback(
+    (url: string) => openPreferredLink(url, { serverId, workspaceRoot: cwd }),
+    [serverId, cwd],
+  );
+
   const handleOpenLocalFileLink = useCallback(
     (target: TerminalLocalFileLinkTarget, disposition: OpenFileDisposition) => {
       const location = normalizeWorkspaceFileLocation(target);
@@ -1200,6 +1206,7 @@ export function TerminalPane({
             onSelectionChange={handleSelectionChange}
             onResolveLocalFileLink={handleResolveLocalFileLink}
             onOpenLocalFileLink={handleOpenLocalFileLink}
+            onOpenUrl={handleOpenUrl}
             onPendingModifiersConsumed={handlePendingModifiersConsumed}
             pendingModifiers={modifiers}
             focusRequestToken={focusRequestToken}

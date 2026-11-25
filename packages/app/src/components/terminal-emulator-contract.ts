@@ -75,5 +75,6 @@ export interface TerminalEmulatorProps {
   pendingModifiers?: PendingTerminalModifiers;
   focusRequestToken?: number;
   resizeRequestToken?: number;
+  onOpenUrl?: (url: string) => Promise<void> | void;
   onFilePaste?: (file: Promise<TerminalFile | null>) => void;
 }

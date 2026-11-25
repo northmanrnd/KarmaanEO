@@ -62,7 +62,7 @@ Branch drafts retain original image and structured attachment payloads available
 
 Returning to a message restores its available attachments into editable composer pills after the provider successfully rewinds the conversation. Existing draft text and attachments are preserved. Remove a pill to omit it, or use the normal picker/drop flow to add a replacement. Files-only rewind does not change the composer. Missing stored image bytes produce an error before rewind; sending also fails rather than silently omitting an image. Provider rewind capabilities remain authoritative; no native transcript is edited in place.
 
-Settings → General → Open links in selects the built-in browser or the default OS browser for ordinary chat and document HTTP(S) links. This preference persists independently of script service URL choices. Where an in-app workspace browser is unavailable, links use the OS browser. Explicitly external actions keep their original destination. Copy file path on file tabs resolves relative paths against that workspace's directory.
+Settings → General → Open links in selects the built-in browser or the default OS browser for ordinary chat and document HTTP(S) links. Terminal web links use the same preference. Localhost, loopback IPv4/IPv6, and `.localhost` links open in the built-in workspace browser on desktop, including service links. This preference persists independently of script service URL choices. Where an in-app workspace browser is unavailable, links use the OS browser. Explicitly external actions keep their original destination. Copy file path on file tabs resolves relative paths against that workspace's directory.
 
 ## Browser and document previews
 

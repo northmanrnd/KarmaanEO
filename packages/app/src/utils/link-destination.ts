@@ -1,5 +1,24 @@
 import { isHttpUrl } from "./http-url";
 
+/** Local development links belong beside the workspace, regardless of the public-link preference. */
+export function preferredLinkDestination(
+  url: string,
+  preference: "in-app" | "external",
+): "in-app" | "external" {
+  if (isHttpUrl(url)) {
+    const host = new URL(url).hostname.toLowerCase();
+    if (
+      host === "localhost" ||
+      host.endsWith(".localhost") ||
+      host === "[::1]" ||
+      /^127\.\d+\.\d+\.\d+$/.test(host)
+    ) {
+      return "in-app";
+    }
+  }
+  return preference;
+}
+
 export async function dispatchPreferredLink(
   url: string,
   preference: "in-app" | "external",
@@ -9,7 +28,7 @@ export async function dispatchPreferredLink(
   },
 ): Promise<void> {
   if (!isHttpUrl(url)) return;
-  if (preference === "in-app" && ports.openInApp) {
+  if (preferredLinkDestination(url, preference) === "in-app" && ports.openInApp) {
     ports.openInApp(url);
     return;
   }
