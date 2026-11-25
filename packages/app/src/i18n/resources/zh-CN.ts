@@ -1928,6 +1928,8 @@ export const zhCN: TranslationResources = {
         alwaysUseFilename: "始终用于 {{filename}}",
         option: "{{title}} — {{owner}}",
         builtin: {
+          pdf: "PDF",
+          spreadsheet: "电子表格",
           owner: "Paseo",
           markdown: "Markdown",
           html: "HTML",

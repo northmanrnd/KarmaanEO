@@ -64,6 +64,23 @@ Returning to a message restores its available attachments into editable composer
 
 Settings → General → Open links in selects the built-in browser or the default OS browser for ordinary chat and document HTTP(S) links. This preference persists independently of script service URL choices. Where an in-app workspace browser is unavailable, links use the OS browser. Explicitly external actions keep their original destination. Copy file path on file tabs resolves relative paths against that workspace's directory.
 
+## Browser and document previews
+
+When an agent uses the built-in browser, its chat shows a preview of its latest tab.
+The preview refreshes while expanded and visible without selecting the browser tab.
+**Open tab** reveals that same tab. **Pause automation** blocks subsequent agent
+commands for the tab until **Resume automation**; an action already in progress can
+finish. Closing a tab removes its preview. Activity and pause state last for the current
+app session. Browser tools still require the host opt-in described in
+[Browser automation](../public-docs/browser.md).
+
+PDFs open in the built-in document viewer without installing a plugin. Spreadsheet
+previews support XLSX, XLS, XLSM, XLSB, ODS, CSV and TSV, with worksheet selection,
+formatted cell values, virtualized rows and column paging for wide sheets. Previews
+refresh when the file changes. They are read-only; formulas show their saved values,
+or the formula text when no saved value exists. Macros are not executed. Existing file
+panel associations can still select an installed alternative viewer.
+
 ## Continuing work in another agent
 
 Use **Continue with another agent** above a conversation when a subscription is exhausted or you want to switch providers. This opens an unsent draft in the same workspace. Select the provider/model using the draft controls, review the attached history, and edit the handoff before sending. Nothing is created until the first send, and the source agent and its running turn remain unchanged. Provider authentication uses the host's configured accounts; this feature does not add account switching.

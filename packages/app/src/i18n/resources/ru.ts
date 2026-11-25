@@ -1982,6 +1982,8 @@ export const ru: TranslationResources = {
         alwaysUseFilename: "Всегда использовать для {{filename}}",
         option: "{{title}} — {{owner}}",
         builtin: {
+          pdf: "PDF",
+          spreadsheet: "Электронная таблица",
           owner: "Paseo",
           markdown: "Markdown",
           html: "HTML",
